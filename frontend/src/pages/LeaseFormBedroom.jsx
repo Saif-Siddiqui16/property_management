@@ -3,26 +3,28 @@ import { MainLayout } from '../layouts/MainLayout';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { Button } from '../components/Button';
-import { BedDouble, Calendar, DollarSign, Home, User, Shield, ChevronDown, CheckCircle } from 'lucide-react';
+import { BedDouble, Calendar, DollarSign, Home, User, Shield, ChevronDown, CheckCircle, Bed } from 'lucide-react';
 
 export const LeaseFormBedroom = () => {
     const navigate = useNavigate();
     const [buildings, setBuildings] = useState([]);
     const [units, setUnits] = useState([]);
+    const [bedrooms, setBedrooms] = useState([]);
+    const [tenants, setTenants] = useState([]);
     const [selectedBuilding, setSelectedBuilding] = useState('');
     const [form, setForm] = useState({
         unitId: '',
+        bedroomId: '',
         tenantId: '',
-        tenantName: '',
         startDate: '',
         endDate: '',
         monthlyRent: '',
         securityDeposit: ''
     });
-    const [isTenantReadOnly, setIsTenantReadOnly] = useState(true);
 
     useEffect(() => {
         fetchBuildings();
+        fetchTenants();
     }, []);
 
     const fetchBuildings = async () => {
@@ -34,36 +36,41 @@ export const LeaseFormBedroom = () => {
         }
     };
 
+    const fetchTenants = async () => {
+        try {
+            const res = await api.get('/api/admin/tenants');
+            // Show all tenants for now, or filter by those without active leases
+            setTenants(res.data);
+        } catch (error) {
+            console.error('Failed to fetch tenants', error);
+        }
+    };
+
     const handleBuildingChange = async (e) => {
         const buildingId = e.target.value;
         setSelectedBuilding(buildingId);
         setUnits([]);
+        setBedrooms([]);
         setForm({
             ...form,
             unitId: '',
+            bedroomId: '',
             tenantId: '',
-            tenantName: '',
-            monthlyRent: '',
-            securityDeposit: '',
-            startDate: '',
-            endDate: ''
         });
 
         if (buildingId) {
             try {
-                // Fetch units for this building with BEDROOM_WISE rental mode that have assigned tenants
-                const res = await api.get(`/api/admin/leases/units-with-tenants?propertyId=${buildingId}&rentalMode=BEDROOM_WISE`);
-                const allUnits = res.data.data || [];
+                // Fetch units for this building
+                const res = await api.get(`/api/admin/units?propertyId=${buildingId}&limit=1000`);
+                const allUnits = res.data.data || res.data;
 
-                // Fetch all leases to find active ones
-                const leasesRes = await api.get('/api/admin/leases');
-                const activeUnits = leasesRes.data
-                    .filter(l => l.status === 'active')
-                    .map(l => l.unit);
-
-                // Filter out units that already have an active lease
-                const filteredUnits = allUnits.filter(u => !activeUnits.includes(u.unitNumber));
-
+                // Improved filtering for bedroom-wise leasing:
+                // Hide units that are "Fully Booked" OR are "Occupied" in Full Unit mode.
+                const filteredUnits = allUnits.filter(u => {
+                    if (u.status === 'Fully Booked') return false;
+                    if ((u.rentalMode === 'FULL_UNIT' || u.rentalMode === 1) && u.status === 'Occupied') return false;
+                    return true;
+                });
                 setUnits(filteredUnits);
             } catch (error) {
                 console.error('Failed to fetch units', error);
@@ -73,35 +80,37 @@ export const LeaseFormBedroom = () => {
 
     const handleUnitChange = async (e) => {
         const unitId = e.target.value;
-        setForm({ ...form, unitId, tenantId: '', tenantName: '' });
+        setForm({ ...form, unitId, bedroomId: '', tenantId: '' });
+        setBedrooms([]);
 
         if (unitId) {
             try {
-                const res = await api.get(`/api/admin/leases/active/${unitId}`);
-                if (res.data) {
-                    setForm(prev => ({
-                        ...prev,
-                        tenantId: res.data.tenantId,
-                        tenantName: res.data.tenantName
-                    }));
-                } else {
-                    setForm(prev => ({ ...prev, tenantId: '', tenantName: 'No Active Tenant' }));
-                }
+                // Fetch vacant bedrooms for this unit
+                const res = await api.get('/api/admin/units/bedrooms/vacant');
+                const unitBedrooms = res.data.filter(b => b.unitId === parseInt(unitId));
+                setBedrooms(unitBedrooms);
             } catch (error) {
-                console.error('Failed to fetch active lease', error);
-                setForm(prev => ({ ...prev, tenantName: 'Error fetching tenant' }));
+                console.error('Failed to fetch bedrooms', error);
             }
         }
     };
 
     const handleSave = async () => {
-        if (!form.unitId || !form.tenantName || !form.startDate || !form.endDate || form.tenantName === 'No Active Tenant' || form.tenantName === 'Error fetching tenant') {
-            alert('Please select a unit with an assigned tenant and fill all required fields');
+        if (!form.unitId || !form.bedroomId || !form.tenantId || !form.startDate || !form.endDate) {
+            alert('Please fill all required fields (Unit, Bedroom, Tenant, Dates)');
             return;
         }
 
         try {
-            await api.post('/api/admin/leases', form);
+            const payload = {
+                ...form,
+                unitId: parseInt(form.unitId),
+                bedroomId: parseInt(form.bedroomId),
+                tenantId: parseInt(form.tenantId),
+                monthlyRent: parseFloat(form.monthlyRent) || 0,
+                securityDeposit: parseFloat(form.securityDeposit) || 0
+            };
+            await api.post('/api/admin/leases', payload);
             alert('Bedroom Lease created successfully');
             navigate('/leases');
         } catch (error) {
@@ -124,14 +133,14 @@ export const LeaseFormBedroom = () => {
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-slate-800 m-0">New Bedroom Lease</h2>
-                            <p className="text-slate-500 text-sm mt-1">Create a lease for a unit managed bedroom-wise</p>
+                            <p className="text-slate-500 text-sm mt-1">Create a lease for an individual bedroom</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         {/* Building Selection */}
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">Select Building</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">BUILDING NAME</label>
                             <div className="relative">
                                 <Home size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <select
@@ -141,7 +150,7 @@ export const LeaseFormBedroom = () => {
                                 >
                                     <option value="">Choose a Building</option>
                                     {buildings.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                        <option key={b.id} value={b.id}>{b.civicNumber || b.name}</option>
                                     ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -173,18 +182,49 @@ export const LeaseFormBedroom = () => {
                             </div>
                         </div>
 
-                        {/* Tenant Name */}
+                        {/* Bedroom Selection */}
                         <div className="md:col-span-1">
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">Tenant Name</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">Bedroom</label>
+                            <div className="relative">
+                                <Bed size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <select
+                                    name="bedroomId"
+                                    value={form.bedroomId}
+                                    onChange={handleChange}
+                                    disabled={!form.unitId}
+                                    className="w-full pl-12 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 appearance-none disabled:opacity-50"
+                                >
+                                    <option value="">Select Bedroom</option>
+                                    {bedrooms.map(b => (
+                                        <option key={b.id} value={b.id}>{b.bedroomNumber}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <ChevronDown size={18} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tenant Selection */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">Select Tenant</label>
                             <div className="relative">
                                 <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input
-                                    name="tenantName"
-                                    placeholder="Auto-filled from unit"
-                                    value={form.tenantName}
-                                    readOnly={true}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-100 outline-none font-medium text-slate-800 cursor-not-allowed"
-                                />
+                                <select
+                                    name="tenantId"
+                                    value={form.tenantId}
+                                    onChange={handleChange}
+                                    disabled={!form.bedroomId}
+                                    className="w-full pl-12 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 appearance-none disabled:opacity-50"
+                                >
+                                    <option value="">Select Tenant</option>
+                                    {tenants.map(t => (
+                                        <option key={t.id} value={t.id}>{t.name} ({t.email})</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <ChevronDown size={18} />
+                                </div>
                             </div>
                         </div>
 
@@ -196,6 +236,7 @@ export const LeaseFormBedroom = () => {
                                 <input
                                     name="monthlyRent"
                                     placeholder="0.00"
+                                    type="number"
                                     value={form.monthlyRent}
                                     onChange={handleChange}
                                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800"
@@ -210,6 +251,7 @@ export const LeaseFormBedroom = () => {
                                 <input
                                     name="securityDeposit"
                                     placeholder="0.00"
+                                    type="number"
                                     value={form.securityDeposit}
                                     onChange={handleChange}
                                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800"

@@ -64,38 +64,98 @@ exports.getLeaseHistory = async (req, res) => {
 exports.deleteLease = async (req, res) => {
     try {
         const id = parseInt(req.params.id);
-        const lease = await prisma.lease.findUnique({ where: { id } });
+        const lease = await prisma.lease.findUnique({
+            where: { id },
+            include: {
+                unit: {
+                    include: { bedroomsList: true }
+                },
+                tenant: true
+            }
+        });
 
         if (!lease) return res.status(404).json({ message: 'Lease not found' });
 
         if (lease.status === 'Active') {
-            // Revert to DRAFT so it shows up in "New Lease" dropdown again
-            await prisma.lease.update({
-                where: { id },
-                data: {
-                    status: 'DRAFT',
-                    startDate: null,
-                    endDate: null,
-                    monthlyRent: null,
-                    securityDeposit: null
+            await prisma.$transaction(async (tx) => {
+                // Determine if this was a bedroom lease or full unit lease
+                const tenantBedroomId = lease.tenant.bedroomId;
+                const isBedroomLease = tenantBedroomId !== null;
+                const isFullUnitLease = !isBedroomLease;
+
+                if (isFullUnitLease) {
+                    // Full Unit Lease: Reset all bedrooms to Vacant
+                    if (lease.unit.bedroomsList.length > 0) {
+                        await tx.bedroom.updateMany({
+                            where: { unitId: lease.unitId },
+                            data: { status: 'Vacant' }
+                        });
+                    }
+
+                    // Reset unit status to Vacant
+                    await tx.unit.update({
+                        where: { id: lease.unitId },
+                        data: { status: 'Vacant' }
+                    });
+                } else {
+                    // Bedroom Lease: Reset only the specific bedroom
+                    await tx.bedroom.update({
+                        where: { id: tenantBedroomId },
+                        data: { status: 'Vacant' }
+                    });
+
+                    // Check if all bedrooms are now vacant
+                    const updatedUnit = await tx.unit.findUnique({
+                        where: { id: lease.unitId },
+                        include: { bedroomsList: true }
+                    });
+
+                    const allVacant = updatedUnit.bedroomsList.every(b => b.status === 'Vacant');
+                    const anyOccupied = updatedUnit.bedroomsList.some(b => b.status === 'Occupied');
+
+                    if (allVacant) {
+                        // All bedrooms vacant, mark unit as Vacant
+                        await tx.unit.update({
+                            where: { id: lease.unitId },
+                            data: { status: 'Vacant' }
+                        });
+                    } else if (anyOccupied) {
+                        // Some bedrooms still occupied, keep as Occupied
+                        await tx.unit.update({
+                            where: { id: lease.unitId },
+                            data: { status: 'Occupied' }
+                        });
+                    }
                 }
+
+                // Reset tenant's bedroomId
+                await tx.user.update({
+                    where: { id: lease.tenantId },
+                    data: { bedroomId: null }
+                });
+
+                // Revert lease to DRAFT
+                await tx.lease.update({
+                    where: { id },
+                    data: {
+                        status: 'DRAFT',
+                        startDate: null,
+                        endDate: null,
+                        monthlyRent: null,
+                        securityDeposit: null
+                    }
+                });
             });
 
-            // Update unit status back to Vacant
-            await prisma.unit.update({
-                where: { id: lease.unitId },
-                data: { status: 'Vacant' }
-            });
-
-            res.json({ message: 'Lease reverted to DRAFT' });
+            res.json({ message: 'Lease reverted to DRAFT and statuses reset' });
         } else {
             // If it's already DRAFT or other, delete permanently
             await prisma.lease.delete({ where: { id } });
-            res.json({ message: 'Deleted permanent' });
+            res.json({ message: 'Deleted permanently' });
         }
     } catch (e) {
         console.error('Delete Lease Error:', e);
-        res.status(500).json({ message: 'Error' });
+        res.status(500).json({ message: 'Error deleting lease' });
     }
 };
 
@@ -153,7 +213,12 @@ exports.activateLease = async (req, res) => {
         const id = parseInt(req.params.id);
         const lease = await prisma.lease.findUnique({
             where: { id },
-            include: { unit: true }
+            include: {
+                unit: {
+                    include: { bedroomsList: true }
+                },
+                tenant: true
+            }
         });
 
         if (!lease) return res.status(404).json({ message: 'Lease not found' });
@@ -170,18 +235,61 @@ exports.activateLease = async (req, res) => {
                 include: { unit: true }
             });
 
-            // 2. Update unit status to Occupied
-            await tx.unit.update({
-                where: { id: lease.unitId },
-                data: { status: 'Occupied' }
-            });
+            // 2. Resolve Lease Type and Update Statuses
+            const tId = lease.tenantId;
+            const uId = lease.unitId;
+            const bId = lease.tenant.bedroomId;
+            const isFullUnitLease = bId === null;
+            const isBedroomLease = !isFullUnitLease;
+
+            if (isFullUnitLease) {
+                // Full Unit Lease: Mark unit as Fully Booked and all bedrooms as Occupied
+                await tx.unit.update({
+                    where: { id: uId },
+                    data: {
+                        status: 'Fully Booked',
+                        rentalMode: 'FULL_UNIT'
+                    }
+                });
+
+                if (lease.unit.bedroomsList.length > 0) {
+                    await tx.bedroom.updateMany({
+                        where: { unitId: uId },
+                        data: { status: 'Occupied' }
+                    });
+                }
+            } else {
+                // Bedroom Lease: Mark specific bedroom as Occupied
+                await tx.bedroom.update({
+                    where: { id: bId },
+                    data: { status: 'Occupied' }
+                });
+
+                // Update unit rental mode to BEDROOM_WISE
+                await tx.unit.update({
+                    where: { id: uId },
+                    data: { rentalMode: 'BEDROOM_WISE' }
+                });
+
+                // Recalculate unit status
+                const unitWithBedrooms = await tx.unit.findUnique({
+                    where: { id: uId },
+                    include: { bedroomsList: true }
+                });
+
+                const allOccupied = unitWithBedrooms.bedroomsList.every(b => b.status === 'Occupied');
+                await tx.unit.update({
+                    where: { id: uId },
+                    data: { status: allOccupied ? 'Fully Booked' : 'Occupied' }
+                });
+            }
 
             // 3. Auto-create Invoice for the current month
             const monthStr = startDate.toLocaleString('default', { month: 'long', year: 'numeric' });
             const existingInvoice = await tx.invoice.findFirst({
                 where: {
-                    tenantId: lease.tenantId,
-                    unitId: lease.unitId,
+                    tenantId: tId,
+                    unitId: uId,
                     month: monthStr
                 }
             });
@@ -189,20 +297,18 @@ exports.activateLease = async (req, res) => {
             if (!existingInvoice) {
                 const count = await tx.invoice.count();
                 const invoiceNo = `INV-LEASE-${String(count + 1).padStart(5, '0')}`;
-                const rentAmt = parseFloat(lease.monthlyRent) || 0;
+                const rentAmt = parseFloat(updatedLease.monthlyRent) || 0;
 
                 await tx.invoice.create({
                     data: {
                         invoiceNo,
-                        tenantId: lease.tenantId,
-                        unitId: lease.unitId,
-                        leaseId: lease.id,
-                        leaseType: lease.unit.rentalMode, // Snapshot FULL_UNIT or BEDROOM_WISE
+                        tenantId: tId,
+                        unitId: uId,
+                        leaseId: updatedLease.id,
+                        leaseType: updatedLease.unit.rentalMode,
                         month: monthStr,
                         rent: rentAmt,
-                        serviceFees: 0,
                         amount: rentAmt,
-                        paidAmount: 0,
                         balanceDue: rentAmt,
                         status: 'sent',
                         dueDate: startDate
@@ -251,7 +357,7 @@ exports.getActiveLease = async (req, res) => {
 // POST /api/admin/leases
 exports.createLease = async (req, res) => {
     try {
-        const { unitId, tenantId, startDate, endDate, monthlyRent, securityDeposit } = req.body;
+        const { unitId, bedroomId, tenantId, startDate, endDate, monthlyRent, securityDeposit } = req.body;
 
         if (!unitId || !tenantId) {
             return res.status(400).json({ message: 'Unit ID and Tenant ID are required' });
@@ -259,9 +365,70 @@ exports.createLease = async (req, res) => {
 
         const uId = parseInt(unitId);
         const tId = parseInt(tenantId);
+        const bId = bedroomId ? parseInt(bedroomId) : null;
 
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Check for existing DRAFT or Active lease
+            // Fetch unit with bedrooms and existing leases
+            const unit = await tx.unit.findUnique({
+                where: { id: uId },
+                include: {
+                    bedroomsList: true,
+                    leases: {
+                        where: { status: { in: ['Active', 'DRAFT'] } }
+                    }
+                }
+            });
+
+            if (!unit) {
+                throw new Error('Unit not found');
+            }
+
+            // Determine lease type based on presence of bedroomId
+            const isBedroomLease = bId !== null;
+            const isFullUnitLease = !isBedroomLease;
+
+            // VALIDATION FOR FULL UNIT LEASE
+            if (isFullUnitLease) {
+                // Check if any bedrooms are already occupied
+                const occupiedBedrooms = unit.bedroomsList.filter(b => b.status !== 'Vacant');
+                if (occupiedBedrooms.length > 0) {
+                    throw new Error(`Cannot create full unit lease: ${occupiedBedrooms.length} bedroom(s) are already leased. Please ensure all bedrooms are vacant before creating a full unit lease.`);
+                }
+
+                // Check if unit already has an active full unit lease
+                const existingFullUnitLease = unit.leases.find(l =>
+                    l.status === 'Active' && unit.rentalMode === 'FULL_UNIT'
+                );
+                if (existingFullUnitLease) {
+                    throw new Error('This unit already has an active full unit lease');
+                }
+            }
+
+            // VALIDATION FOR BEDROOM LEASE
+            if (isBedroomLease) {
+                // Check if unit is already leased as a full unit
+                // A unit is considered leased as a full unit if its rentalMode is FULL_UNIT 
+                // AND it has any active lease OR its status is 'Fully Booked'/'Occupied'
+                const hasFullUnitConflict = (unit.rentalMode === 'FULL_UNIT' && (unit.status === 'Fully Booked' || unit.status === 'Occupied')) ||
+                    unit.leases.some(l => l.status === 'Active');
+
+                if (hasFullUnitConflict && unit.rentalMode === 'FULL_UNIT') {
+                    throw new Error('Cannot lease bedroom: This unit is already leased as a full unit. Please delete the full unit lease first.');
+                }
+
+                // Find the specific bedroom
+                const bedroom = unit.bedroomsList.find(b => b.id === bId);
+                if (!bedroom) {
+                    throw new Error('Bedroom not found in this unit');
+                }
+
+                // Check if bedroom is available
+                if (bedroom.status !== 'Vacant') {
+                    throw new Error(`Bedroom ${bedroom.bedroomNumber} is not available (current status: ${bedroom.status})`);
+                }
+            }
+
+            // Check for existing DRAFT lease
             const draftLease = await tx.lease.findFirst({
                 where: { unitId: uId, tenantId: tId, status: 'DRAFT' }
             });
@@ -292,13 +459,72 @@ exports.createLease = async (req, res) => {
                 });
             }
 
-            // 2. Update unit status to Occupied
-            await tx.unit.update({
-                where: { id: uId },
-                data: { status: 'Occupied' }
-            });
+            // UPDATE STATUSES BASED ON LEASE TYPE
+            if (isFullUnitLease) {
+                // Full Unit Lease: Mark unit as Fully Booked and all bedrooms as Occupied
+                await tx.unit.update({
+                    where: { id: uId },
+                    data: {
+                        status: 'Fully Booked',
+                        rentalMode: 'FULL_UNIT'
+                    }
+                });
 
-            // 3. Auto-create Invoice for the first month
+                // Mark all bedrooms as Occupied
+                if (unit.bedroomsList.length > 0) {
+                    await tx.bedroom.updateMany({
+                        where: { unitId: uId },
+                        data: { status: 'Occupied' }
+                    });
+                }
+
+                // Update tenant's bedroomId to null (full unit, not specific bedroom)
+                await tx.user.update({
+                    where: { id: tId },
+                    data: { bedroomId: null }
+                });
+            } else {
+                // Bedroom Lease: Mark specific bedroom as Occupied
+                await tx.bedroom.update({
+                    where: { id: bId },
+                    data: { status: 'Occupied' }
+                });
+
+                // Update unit rental mode to BEDROOM_WISE
+                await tx.unit.update({
+                    where: { id: uId },
+                    data: { rentalMode: 'BEDROOM_WISE' }
+                });
+
+                // Check if all bedrooms are now occupied
+                const updatedUnit = await tx.unit.findUnique({
+                    where: { id: uId },
+                    include: { bedroomsList: true }
+                });
+                const allOccupied = updatedUnit.bedroomsList.every(b => b.status === 'Occupied');
+
+                if (allOccupied) {
+                    // All bedrooms occupied, mark unit as Fully Booked
+                    await tx.unit.update({
+                        where: { id: uId },
+                        data: { status: 'Fully Booked' }
+                    });
+                } else {
+                    // Some bedrooms still vacant, mark as Occupied
+                    await tx.unit.update({
+                        where: { id: uId },
+                        data: { status: 'Occupied' }
+                    });
+                }
+
+                // Update tenant's bedroomId
+                await tx.user.update({
+                    where: { id: tId },
+                    data: { bedroomId: bId }
+                });
+            }
+
+            // Auto-create Invoice for the first month
             const monthStr = new Date(startDate).toLocaleString('default', { month: 'long', year: 'numeric' });
             const existingInvoice = await tx.invoice.findFirst({
                 where: {
@@ -319,7 +545,7 @@ exports.createLease = async (req, res) => {
                         tenantId: tId,
                         unitId: uId,
                         leaseId: lease.id,
-                        leaseType: lease.unit.rentalMode, // Snapshot FULL_UNIT or BEDROOM_WISE
+                        leaseType: isFullUnitLease ? 'FULL_UNIT' : 'BEDROOM_WISE',
                         month: monthStr,
                         rent: rentAmt,
                         serviceFees: 0,
@@ -327,12 +553,12 @@ exports.createLease = async (req, res) => {
                         paidAmount: 0,
                         balanceDue: rentAmt,
                         status: 'sent',
-                        dueDate: new Date(startDate) // Due on start date usually
+                        dueDate: new Date(startDate)
                     }
                 });
             }
 
-            // 4. Record Security Deposit as a Liability Transaction (Requirement 3)
+            // Record Security Deposit as a Liability Transaction
             if (parseFloat(securityDeposit) > 0) {
                 const lastTx = await tx.transaction.findFirst({ orderBy: { id: 'desc' } });
                 const prevBalance = lastTx ? parseFloat(lastTx.balance) : 0;
@@ -340,8 +566,8 @@ exports.createLease = async (req, res) => {
                 await tx.transaction.create({
                     data: {
                         date: new Date(),
-                        description: `Security Deposit Received - Lease ${lease.id}`,
-                        type: 'Liability', // Treat as liability
+                        description: `Security Deposit Received - Lease ${lease.id}${isBedroomLease ? ' (Bedroom)' : ' (Full Unit)'}`,
+                        type: 'Liability',
                         amount: parseFloat(securityDeposit),
                         balance: prevBalance + parseFloat(securityDeposit),
                         status: 'Completed'
@@ -355,7 +581,9 @@ exports.createLease = async (req, res) => {
         res.status(201).json(result);
     } catch (error) {
         console.error('Create Lease Error:', error);
-        res.status(500).json({ message: 'Error creating lease' });
+        // Return user-friendly error messages
+        const message = error.message || 'Error creating lease';
+        res.status(400).json({ message });
     }
 };
 

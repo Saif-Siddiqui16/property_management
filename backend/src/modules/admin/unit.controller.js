@@ -35,7 +35,8 @@ exports.getAllUnits = async (req, res) => {
             building: u.property.civicNumber || u.property.name,
             status: u.status,
             propertyId: u.propertyId,
-            bedrooms: u.bedrooms
+            bedrooms: u.bedrooms,
+            rentalMode: u.rentalMode
         }));
 
         res.json({
