@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { Button } from '../components/Button';
 import { Plus, Search, User, Eye, Trash2, Building2, Pencil } from 'lucide-react';
+import api from '../api/client';
 
 const initialOwners = [
     {
@@ -44,14 +45,25 @@ export const Owners = () => {
 
     const fetchOwnersData = async () => {
         try {
-            const [ownersRes, propsRes] = await Promise.all([
-                api.get('/api/admin/owners'),
-                api.get('/api/admin/properties')
-            ]);
-            setOwners(ownersRes.data);
-            setAvailableProperties(propsRes.data);
+            const res = await api.get('/api/admin/owners');
+            setOwners(res.data);
         } catch (error) {
-            console.error('Failed to fetch data', error);
+            console.error('Failed to fetch owners', error);
+        }
+    };
+
+    const fetchAvailableProperties = async (ownerId = null) => {
+        try {
+            console.log('Fetching available properties with ownerId:', ownerId);
+            const params = ownerId ? { ownerId } : {};
+            console.log('API params:', params);
+            const res = await api.get('/api/admin/properties/available', { params });
+            console.log('Received properties:', res.data);
+            setAvailableProperties(res.data);
+            return res.data;
+        } catch (error) {
+            console.error('Failed to fetch available properties', error);
+            return [];
         }
     };
 
@@ -117,10 +129,11 @@ export const Owners = () => {
         }
     };
 
-    const handleEditOwner = (owner) => {
+    const handleEditOwner = async (owner) => {
+        const props = await fetchAvailableProperties(owner.id);
         setEditingOwner(owner);
-        // Match by ID if possible, or Name as fallback
-        const currentProps = availableProperties.filter(p => p.ownerId === owner.id);
+        // Match by ID safely
+        const currentProps = props.filter(p => Number(p.ownerId) === Number(owner.id));
         setSelectedProperties(currentProps);
         setShowModal(true);
     };
@@ -146,6 +159,7 @@ export const Owners = () => {
                     <Button variant="primary" onClick={() => {
                         setEditingOwner(null);
                         setSelectedProperties([]);
+                        fetchAvailableProperties();
                         setShowModal(true);
                     }}>
                         <Plus size={18} />
@@ -289,17 +303,7 @@ export const Owners = () => {
                                                 {isDropdownOpen && (
                                                     <div className="absolute z-10 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-60 overflow-y-auto">
                                                         {availableProperties
-                                                            .filter(p => {
-                                                                // 1. Must not be already selected
-                                                                const isSelected = selectedProperties.some(sp => sp.id === p.id);
-                                                                if (isSelected) return false;
-
-                                                                // 2. Must be unassigned (ownerId === null) OR assigned to THIS owner
-                                                                const isUnassigned = !p.ownerId;
-                                                                const isMyProperty = editingOwner && p.ownerId === editingOwner.id;
-
-                                                                return isUnassigned || isMyProperty;
-                                                            })
+                                                            .filter(p => !selectedProperties.some(sp => sp.id === p.id))
                                                             .map(p => (
                                                                 <button
                                                                     key={p.id}
@@ -315,16 +319,14 @@ export const Owners = () => {
                                                                 </button>
                                                             ))
                                                         }
-                                                        {availableProperties.filter(p => {
-                                                            const isSelected = selectedProperties.some(sp => sp.id === p.id);
-                                                            const isUnassigned = !p.ownerId;
-                                                            const isMyProperty = editingOwner && p.ownerId === editingOwner.id;
-                                                            return !isSelected && (isUnassigned || isMyProperty);
-                                                        }).length === 0 && (
-                                                                <div className="px-4 py-3 text-sm text-slate-400 italic text-center">
-                                                                    No more properties available
-                                                                </div>
-                                                            )}
+                                                        {availableProperties.filter(p => !selectedProperties.some(sp => sp.id === p.id)).length === 0 && (
+                                                            <div className="px-4 py-3 text-sm text-slate-400 italic text-center">
+                                                                {availableProperties.length === 0 ? "No available buildings found" : "All available buildings selected"}
+                                                            </div>
+                                                        )}
+                                                        <div className="px-4 py-2 border-t border-slate-50 text-[10px] text-slate-300 uppercase font-bold tracking-tighter flex justify-between">
+                                                            <span>Available: {availableProperties.length}</span>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

@@ -102,6 +102,15 @@ exports.createTenant = async (req, res) => {
 
         // Transaction to ensure atomicity
         const result = await prisma.$transaction(async (prisma) => {
+            // Check if email already exists
+            const existingUser = await prisma.user.findUnique({
+                where: { email }
+            });
+
+            if (existingUser) {
+                throw new Error('A user with this email already exists');
+            }
+
             // 1. Create User (Tenant)
             const inviteToken = crypto.randomBytes(32).toString('hex');
             const inviteExpires = new Date();

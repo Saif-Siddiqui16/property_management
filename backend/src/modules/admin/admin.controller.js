@@ -74,6 +74,55 @@ exports.getDashboardStats = async (req, res) => {
     }
 };
 
+exports.getAvailableProperties = async (req, res) => {
+    try {
+        const { ownerId } = req.query;
+        console.log('Fetching available properties. OwnerId param:', ownerId);
+
+        const whereClause = {
+            status: 'Active'
+        };
+
+        if (ownerId && ownerId !== 'null' && ownerId !== 'undefined') {
+            whereClause.OR = [
+                { ownerId: null },
+                { ownerId: parseInt(ownerId) }
+            ];
+        } else {
+            whereClause.ownerId = null;
+        }
+
+        console.log('Query where clause:', JSON.stringify(whereClause, null, 2));
+
+        const properties = await prisma.property.findMany({
+            where: whereClause,
+            include: {
+                units: {
+                    select: {
+                        status: true
+                    }
+                }
+            }
+        });
+
+        console.log(`Found ${properties.length} available properties`);
+
+        const formatted = properties.map(p => ({
+            id: p.id,
+            name: p.name,
+            address: p.address,
+            units: p.units.length,
+            status: p.status,
+            ownerId: p.ownerId
+        }));
+
+        res.json(formatted);
+    } catch (error) {
+        console.error('Get Available Properties Error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 exports.getProperties = async (req, res) => {
     try {
         const properties = await prisma.property.findMany({

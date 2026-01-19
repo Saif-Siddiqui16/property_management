@@ -11,6 +11,7 @@ const ticketController = require('./ticket.controller');
 
 router.get('/dashboard/stats', adminController.getDashboardStats);
 router.get('/properties', adminController.getProperties);
+router.get('/properties/available', adminController.getAvailableProperties);
 
 const invoiceController = require('./invoice.controller');
 const maintenanceController = require('./maintenance.controller');
@@ -31,6 +32,7 @@ router.post('/owners', adminController.createOwner);
 router.put('/owners/:id', adminController.updateOwner);
 router.delete('/owners/:id', adminController.deleteOwner);
 router.get('/properties', adminController.getProperties);
+router.get('/properties/available', adminController.getAvailableProperties);
 router.post('/properties', adminController.createProperty);
 router.put('/properties/:id', adminController.updateProperty);
 router.delete('/properties/:id', adminController.deleteProperty);
