@@ -71,7 +71,11 @@ export const Tenants = () => {
       if (selectedPropertyId) {
         try {
           const res = await api.get(`/api/admin/units?building_id=${selectedPropertyId}&limit=1000`);
-          const units = res.data?.data || res.data || [];
+          const allUnits = res.data?.data || res.data || [];
+
+          // Filter out units that are "Fully Booked"
+          const units = allUnits.filter(u => u.status !== 'Fully Booked');
+
           setAvailableUnits(units);
 
           // Edit Tenant Consistency: If editing, ensure the unit stays selected if found in result

@@ -465,3 +465,28 @@ enum TaxStatus {
   active
   inactive
 }
+
+model RentRun {
+  id           Int          @id @default(autoincrement())
+  date         DateTime     @default(now())
+  month        String
+  status       String       @default("Pending") // Pending, Completed, Failed
+  createdCount Int          @default(0)
+  skippedCount Int          @default(0)
+  totalAmount  Decimal      @default(0)
+  logs         RentRunLog[]
+
+  @@map("rentrun")
+}
+
+model RentRunLog {
+  id        Int      @id @default(autoincrement())
+  runId     Int
+  leaseId   Int
+  status    String   // Success, Skipped, Error
+  message   String?  @db.Text
+  createdAt DateTime @default(now())
+  run       RentRun  @relation(fields: [runId], references: [id])
+
+  @@map("rentrunlog")
+}

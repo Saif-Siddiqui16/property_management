@@ -310,7 +310,9 @@ export const Units = () => {
                       <span className="text-slate-600">{unit.unitType || '-'}</span>
                       <span className="text-slate-600">{unit.floor || '-'}</span>
                       <span className="text-slate-600">{unit.bedrooms || '-'}</span>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold w-fit ${unit.status === 'Occupied' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold w-fit ${unit.status === 'Occupied' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                          unit.status === 'Fully Booked' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                            'bg-emerald-50 text-emerald-700 border border-emerald-100'
                         }`}>
                         {unit.status}
                       </span>

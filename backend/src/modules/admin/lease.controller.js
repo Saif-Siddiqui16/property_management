@@ -134,20 +134,13 @@ exports.deleteLease = async (req, res) => {
                     data: { bedroomId: null, unitId: null, buildingId: null }
                 });
 
-                // Revert lease to DRAFT
-                await tx.lease.update({
-                    where: { id },
-                    data: {
-                        status: 'DRAFT',
-                        startDate: null,
-                        endDate: null,
-                        monthlyRent: null,
-                        securityDeposit: null
-                    }
+                // Actually delete the lease record
+                await tx.lease.delete({
+                    where: { id }
                 });
             });
 
-            res.json({ message: 'Lease reverted to DRAFT and statuses reset' });
+            res.json({ message: 'Lease deleted and statuses reset' });
         } else {
             // If it's already DRAFT or other, delete permanently AND unlink tenant
             await prisma.$transaction(async (tx) => {
@@ -417,21 +410,31 @@ exports.createLease = async (req, res) => {
                     throw new Error(`Cannot create full unit lease: ${occupiedBedrooms.length} bedroom(s) are already occupied. Please ensure all bedrooms are vacant.`);
                 }
 
-                // Check for ANY existing Active or DRAFT lease for this unit
-                // To be safe, we block if ANY lease exists for this unit
-                if (unit.leases.length > 0) {
-                    throw new Error('Cannot create full unit lease: This unit already has active or pending leases.');
+                // Check for EXISTING Active lease for this unit
+                const activeLease = unit.leases.find(l => l.status === 'Active');
+                if (activeLease) {
+                    throw new Error('Cannot create full unit lease: This unit already has an ACTIVE lease.');
+                }
+
+                // Check for DRAFT leases for DIFFERENT tenants
+                const otherDraftLease = unit.leases.find(l => l.status === 'DRAFT' && l.tenantId !== tId);
+                if (otherDraftLease) {
+                    throw new Error('Cannot create full unit lease: This unit already has a pending lease for another tenant.');
                 }
             }
 
             // VALIDATION FOR BEDROOM LEASE
             if (isBedroomLease) {
-                // Check if unit is already leased as a full unit
-                // If it's in FULL_UNIT mode and has ANY lease (Active or DRAFT), block bedroom leasing.
-                const hasExistingLease = unit.leases.length > 0;
+                // Check for EXISTING Active lease in FULL_UNIT mode
+                const activeFullLease = unit.leases.find(l => l.status === 'Active' && (unit.rentalMode === 'FULL_UNIT' || !unit.rentalMode));
+                if (activeFullLease) {
+                    throw new Error('Cannot lease bedroom: This unit already has an ACTIVE full unit lease.');
+                }
 
-                if (unit.rentalMode === 'FULL_UNIT' && hasExistingLease) {
-                    throw new Error('Cannot lease bedroom: This unit is already reserved as a full unit (active or pending lease).');
+                // Check for DRAFT full unit leases for DIFFERENT tenants
+                const otherDraftFullLease = unit.leases.find(l => l.status === 'DRAFT' && (unit.rentalMode === 'FULL_UNIT' || !unit.rentalMode) && l.tenantId !== tId);
+                if (otherDraftFullLease) {
+                    throw new Error('Cannot lease bedroom: This unit is already reserved as a full unit for another tenant.');
                 }
 
                 // Find the specific bedroom

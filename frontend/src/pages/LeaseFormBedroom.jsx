@@ -62,24 +62,16 @@ export const LeaseFormBedroom = () => {
             try {
                 // Fetch units for this building
                 const res = await api.get(`/api/admin/units?propertyId=${buildingId}&limit=1000`);
-                const allUnits = res.data.data || res.data;
+                const allUnits = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
 
-                // Filtering for Bedroom-wise Lease:
+                // Simplified filtering for Bedroom-wise Lease:
                 const filteredUnits = allUnits.filter(u => {
-                    // 1. HIDDEN: Any unit that is "Fully Booked" (explicitly marked as full).
+                    // Hide if explicitly Fully Booked
                     if (u.status === 'Fully Booked') return false;
 
-                    // 2. HIDDEN: Any unit in "FULL_UNIT" mode that has an ACTIVE lease.
-                    const isFullUnitMode = !u.rentalMode || u.rentalMode === 'FULL_UNIT';
-                    const hasActiveLease = typeof u.activeLeaseCount === 'number' ? u.activeLeaseCount > 0 : false;
+                    // Hide if Occupied in FULL_UNIT mode
+                    if ((u.rentalMode === 'FULL_UNIT' || !u.rentalMode) && u.status === 'Occupied') return false;
 
-                    if (isFullUnitMode && hasActiveLease) return false;
-
-                    // If it's a full unit and has a DRAFT lease, we also hide it from bedroom selection
-                    // to prevent converting a planned full unit into a bedroom unit accidentally.
-                    if (isFullUnitMode && u.draftLeaseCount > 0) return false;
-
-                    // 3. SHOWN: Everything else (Vacant units or Occupied units in BEDROOM_WISE mode with rooms left).
                     return true;
                 });
                 setUnits(filteredUnits);
@@ -96,10 +88,9 @@ export const LeaseFormBedroom = () => {
 
         if (unitId) {
             try {
-                // Fetch vacant bedrooms for this unit
-                const res = await api.get('/api/admin/units/bedrooms/vacant');
-                const unitBedrooms = res.data.filter(b => b.unitId === parseInt(unitId));
-                setBedrooms(unitBedrooms);
+                // Fetch vacant bedrooms for this specific unit
+                const res = await api.get(`/api/admin/units/bedrooms/vacant?unitId=${unitId}`);
+                setBedrooms(res.data);
             } catch (error) {
                 console.error('Failed to fetch bedrooms', error);
             }
@@ -184,7 +175,9 @@ export const LeaseFormBedroom = () => {
                                 >
                                     <option value="">Select Unit</option>
                                     {units.map(u => (
-                                        <option key={u.id} value={u.id}>{u.unitNumber}</option>
+                                        <option key={u.id} value={u.id}>
+                                            {u.unitNumber || u.unit_identifier || u.name} ({u.status})
+                                        </option>
                                     ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

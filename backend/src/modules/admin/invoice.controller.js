@@ -14,7 +14,12 @@ exports.downloadInvoicePDF = async (req, res) => {
 
         if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
 
-        generateInvoicePDF(invoice, res);
+        // Fetch Branding Settings
+        const settingsList = await prisma.systemSetting.findMany();
+        const settings = {};
+        settingsList.forEach(s => settings[s.key] = s.value);
+
+        generateInvoicePDF(invoice, res, settings);
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Error generating PDF' });
@@ -110,18 +115,25 @@ exports.createInvoice = async (req, res) => {
             return res.status(400).json({ message: 'Invoices cannot be generated for RESIDENT tenants.' });
         }
 
-        // Auto-populate rent if not provided
-        if (rent === undefined || rent === null || rent === '') {
-            rent = activeLease.monthlyRent || 0;
+        // ENFORCE PHASE 1 & 3: Separation and Lease Source of Truth
+        const rentAmt = parseFloat(rent) || 0;
+        const feesAmt = parseFloat(serviceFees) || 0;
+
+        if (rentAmt > 0 && feesAmt > 0) {
+            return res.status(400).json({ message: 'Rent and Service Fees must be on separate invoices.' });
         }
+
+        // If creating a rent invoice, ensure it matches the lease
+        let finalRent = rentAmt;
+        if (rentAmt > 0) {
+            finalRent = parseFloat(activeLease.monthlyRent) || 0;
+        }
+
+        const totalAmount = finalRent + feesAmt;
 
         // Generate Invoice Number
         const count = await prisma.invoice.count();
         const invoiceNo = `INV-MAN-${String(count + 1).padStart(5, '0')}`;
-
-        const rentAmt = parseFloat(rent) || 0;
-        const feesAmt = parseFloat(serviceFees) || 0;
-        const totalAmount = rentAmt + feesAmt;
 
         const newInvoice = await prisma.invoice.create({
             data: {
@@ -131,7 +143,7 @@ exports.createInvoice = async (req, res) => {
                 leaseId: activeLease.id,
                 leaseType: activeLease.unit.rentalMode,
                 month,
-                rent: rentAmt,
+                rent: finalRent,
                 serviceFees: feesAmt,
                 amount: totalAmount,
                 paidAmount: 0,
@@ -192,11 +204,18 @@ exports.updateInvoice = async (req, res) => {
         }
 
         if (rent !== undefined || serviceFees !== undefined) {
-            data.rent = newRent;
-            data.serviceFees = newFees;
-            data.amount = newRent + newFees;
+            const upRent = rent !== undefined ? parseFloat(rent) : Number(existing.rent);
+            const upFees = serviceFees !== undefined ? parseFloat(serviceFees) : Number(existing.serviceFees);
+
+            if (upRent > 0 && upFees > 0) {
+                return res.status(400).json({ message: 'Rent and Service Fees must be on separate invoices.' });
+            }
+
+            data.rent = upRent;
+            data.serviceFees = upFees;
+            data.amount = upRent + upFees;
             // Recalc balance based on what was already paid
-            data.balanceDue = (newRent + newFees) - Number(existing.paidAmount);
+            data.balanceDue = (upRent + upFees) - Number(existing.paidAmount);
         }
 
         const updated = await prisma.invoice.update({
@@ -212,11 +231,21 @@ exports.updateInvoice = async (req, res) => {
 
 // POST /api/admin/invoices/batch (Trigger manual batch run)
 exports.runBatchInvoicing = async (req, res) => {
-    console.log('[Manual Batch] Running batch invoice generation...');
+    console.log('[Batch Rent Run] Starting execution...');
     const today = new Date();
     const currentMonth = today.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    // 1. Initialize RentRun Record
+    const rentRun = await prisma.rentRun.create({
+        data: {
+            month: currentMonth,
+            status: 'Pending'
+        }
+    });
+
     let createdCount = 0;
     let skippedCount = 0;
+    let totalAmount = 0;
 
     try {
         const activeLeases = await prisma.lease.findMany({
@@ -228,26 +257,49 @@ exports.runBatchInvoicing = async (req, res) => {
                     type: { not: 'RESIDENT' }
                 }
             },
-            include: { unit: true }
+            include: { unit: true, tenant: true }
         });
 
         for (const lease of activeLeases) {
-            // Idempotency Check
-            const existing = await prisma.invoice.findFirst({
-                where: { leaseId: lease.id, month: currentMonth }
-            });
+            try {
+                // 2. Idempotency Check
+                const existing = await prisma.invoice.findFirst({
+                    where: { leaseId: lease.id, month: currentMonth, rent: { gt: 0 } }
+                });
 
-            if (existing) {
-                skippedCount++;
-                continue;
-            }
+                if (existing) {
+                    await prisma.rentRunLog.create({
+                        data: {
+                            runId: rentRun.id,
+                            leaseId: lease.id,
+                            status: 'Skipped',
+                            message: 'Rent invoice already exists for this period.'
+                        }
+                    });
+                    skippedCount++;
+                    continue;
+                }
 
-            const count = await prisma.invoice.count();
-            const invoiceNo = `INV-BATCH-${String(count + 1).padStart(5, '0')}`;
-            const rentAmount = parseFloat(lease.monthlyRent) || 0;
+                const rentAmount = parseFloat(lease.monthlyRent) || 0;
 
-            if (rentAmount > 0) {
+                if (rentAmount <= 0) {
+                    await prisma.rentRunLog.create({
+                        data: {
+                            runId: rentRun.id,
+                            leaseId: lease.id,
+                            status: 'Skipped',
+                            message: 'Lease monthlyRent is 0 or invalid.'
+                        }
+                    });
+                    skippedCount++;
+                    continue;
+                }
+
+                // 3. Generate Invoice
+                const count = await prisma.invoice.count();
+                const invoiceNo = `INV-BATCH-${String(count + 1).padStart(5, '0')}`;
                 const dueDate = new Date(today.getFullYear(), today.getMonth(), 10); // 10th of month
+
                 await prisma.invoice.create({
                     data: {
                         invoiceNo,
@@ -265,14 +317,51 @@ exports.runBatchInvoicing = async (req, res) => {
                         dueDate: dueDate
                     }
                 });
+
+                await prisma.rentRunLog.create({
+                    data: {
+                        runId: rentRun.id,
+                        leaseId: lease.id,
+                        status: 'Success',
+                        message: `Invoice ${invoiceNo} generated.`
+                    }
+                });
+
                 createdCount++;
-            } else {
+                totalAmount += rentAmount;
+
+            } catch (innerError) {
+                console.error(`[Batch Run] Error processing Lease ID ${lease.id}:`, innerError);
+                await prisma.rentRunLog.create({
+                    data: {
+                        runId: rentRun.id,
+                        leaseId: lease.id,
+                        status: 'Error',
+                        message: innerError.message || 'Unknown processing error.'
+                    }
+                });
                 skippedCount++;
             }
         }
-        res.json({ message: 'Batch run complete', createdCount, skippedCount });
+
+        // 4. Update RentRun with results
+        await prisma.rentRun.update({
+            where: { id: rentRun.id },
+            data: {
+                status: 'Completed',
+                createdCount,
+                skippedCount,
+                totalAmount
+            }
+        });
+
+        res.json({ message: 'Batch run complete', createdCount, skippedCount, runId: rentRun.id });
     } catch (e) {
-        console.error(e);
+        console.error('[Batch Run] Critical Error:', e);
+        await prisma.rentRun.update({
+            where: { id: rentRun.id },
+            data: { status: 'Failed' }
+        });
         res.status(500).json({ message: 'Error in batch generation' });
     }
 };

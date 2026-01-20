@@ -102,6 +102,7 @@ router.patch('/accounts/:id', accountController.updateAccount);
 router.delete('/accounts/:id', accountController.deleteAccount);
 
 router.get('/documents', documentController.getAllDocuments);
+router.post('/documents/upload', documentController.uploadDocument);
 router.get('/documents/:id/download', documentController.downloadDocument);
 router.delete('/documents/:id', documentController.deleteDocument);
 

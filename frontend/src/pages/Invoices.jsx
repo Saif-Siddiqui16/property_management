@@ -37,6 +37,8 @@ export const Invoices = () => {
     const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, processing, success
     const [editInvoice, setEditInvoice] = useState(null);
     const [isBatchRunning, setIsBatchRunning] = useState(false);
+    const [showForm, setShowForm] = useState(false);
+    const [settings, setSettings] = useState({});
 
     // New State for Building/Tenant Selection
     const [buildings, setBuildings] = useState([]);
@@ -58,7 +60,17 @@ export const Invoices = () => {
     useEffect(() => {
         fetchInvoices();
         fetchBuildings();
+        fetchSettings();
     }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const res = await api.get('/api/admin/settings');
+            setSettings(res.data.settings || {});
+        } catch (e) {
+            console.error('Failed to fetch settings', e);
+        }
+    };
 
     const fetchInvoices = async () => {
         try {
@@ -376,13 +388,17 @@ export const Invoices = () => {
                                     <div className="flex justify-between items-start">
                                         <div className="space-y-4">
                                             <div className="flex items-center gap-3 text-indigo-600">
-                                                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl italic">P</div>
-                                                <h2 className="text-xl font-black tracking-tighter text-slate-900 uppercase italic">PropManage <span className="text-indigo-600">SaaS</span></h2>
+                                                {settings.company_logo ? (
+                                                    <img src={settings.company_logo} alt="Logo" className="w-10 h-10 object-contain" />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl italic">P</div>
+                                                )}
+                                                <h2 className="text-xl font-black tracking-tighter text-slate-900 uppercase italic">
+                                                    {settings.company_name || 'PropManage SaaS'}
+                                                </h2>
                                             </div>
-                                            <div className="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                                                123 Business Avenue, Suite 500<br />
-                                                Toronto, ON M5V 2N8<br />
-                                                +1 416-555-0123
+                                            <div className="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed whitespace-pre-line">
+                                                {settings.company_address || '123 Business Avenue, Suite 500\nToronto, ON M5V 2N8\n+1 416-555-0123'}
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -625,24 +641,34 @@ export const Invoices = () => {
 
                                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Base Rent ($)</label>
+                                        <div className="flex justify-between items-center px-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Rent ($)</label>
+                                            {parseFloat(form.serviceFees) > 0 && <span className="text-[9px] text-amber-600 font-bold uppercase">Disabled</span>}
+                                        </div>
                                         <input
                                             type="number"
                                             placeholder="0.00"
                                             value={form.rent}
-                                            onChange={(e) => setForm({ ...form, rent: e.target.value })}
-                                            required
-                                            className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-900 font-mono"
+                                            onChange={(e) => setForm({ ...form, rent: e.target.value, serviceFees: '0' })}
+                                            required={parseFloat(form.serviceFees) === 0}
+                                            disabled={parseFloat(form.serviceFees) > 0}
+                                            readOnly={!!form.tenantId} // Phase 1: Rent pulled from lease is read-only
+                                            className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-900 font-mono disabled:bg-slate-50 disabled:text-slate-400 read-only:bg-slate-50 read-only:text-indigo-600"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Service Fees ($)</label>
+                                        <div className="flex justify-between items-center px-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Service Fees ($)</label>
+                                            {parseFloat(form.rent) > 0 && <span className="text-[9px] text-amber-600 font-bold uppercase">Disabled</span>}
+                                        </div>
                                         <input
                                             type="number"
                                             placeholder="0.00"
                                             value={form.serviceFees}
-                                            onChange={(e) => setForm({ ...form, serviceFees: e.target.value })}
-                                            className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-900 font-mono"
+                                            onChange={(e) => setForm({ ...form, serviceFees: e.target.value, rent: '0' })}
+                                            required={parseFloat(form.rent) === 0}
+                                            disabled={parseFloat(form.rent) > 0}
+                                            className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-900 font-mono disabled:bg-slate-50 disabled:text-slate-400"
                                         />
                                     </div>
                                 </div>

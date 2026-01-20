@@ -56,20 +56,12 @@ export const LeaseForm = () => {
       try {
         // Fetch all units for this building
         const unitsRes = await api.get(`/api/admin/units?propertyId=${buildingId}&limit=1000`);
-        const allUnits = unitsRes.data.data || unitsRes.data;
+        const allUnits = Array.isArray(unitsRes.data.data) ? unitsRes.data.data : (Array.isArray(unitsRes.data) ? unitsRes.data : []);
 
-        // Filter out units that are already leased
-        // For Full Unit Lease: Unit must have NO ACTIVE leases.
-        // DRAFT leases are okay to show (to complete activation).
+        // Simplified filtering for Full Unit Lease:
         const availableUnits = allUnits.filter(u => {
-          const hasActiveLease = (u.activeLeaseCount && u.activeLeaseCount > 0);
-          // If unit is physically occupied or has active leases, hide it.
-          if (hasActiveLease) return false;
-          if (u.status === 'Fully Booked' || u.status === 'Occupied') return false;
-
-          // If it's currently in BEDROOM_WISE mode and has draft leases, 
-          // we hide it from Full Unit selection to avoid mixed drafts.
-          if (u.rentalMode === 'BEDROOM_WISE' && u.draftLeaseCount > 0) return false;
+          // Full Unit requires the unit to be physically vacant
+          if (u.status === 'Occupied' || u.status === 'Fully Booked') return false;
 
           return true;
         });
@@ -179,7 +171,9 @@ export const LeaseForm = () => {
               >
                 <option value="">Select Unit</option>
                 {units.map(u => (
-                  <option key={u.id} value={u.id}>{u.unitNumber} (Floor {u.floor})</option>
+                  <option key={u.id} value={u.id}>
+                    {u.unitNumber || u.unit_identifier || u.name} (Floor {u.floor})
+                  </option>
                 ))}
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
