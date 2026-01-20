@@ -579,7 +579,7 @@ export const Invoices = () => {
                                                         className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-800 appearance-none bg-white disabled:bg-slate-50 disabled:text-slate-400"
                                                     >
                                                         <option value="">Select Tenant</option>
-                                                        {tenants.map(t => (
+                                                        {tenants.filter(t => t.type !== 'RESIDENT' && t.type !== 'Resident').map(t => (
                                                             <option key={t.id} value={t.id}>{t.name}</option>
                                                         ))}
                                                     </select>

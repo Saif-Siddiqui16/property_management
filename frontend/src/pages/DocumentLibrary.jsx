@@ -25,6 +25,9 @@ export const DocumentLibrary = () => {
     const [typeFilter, setTypeFilter] = useState("All");
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [documents, setDocuments] = useState([]);
+    const [search, setSearch] = useState("");
 
     // Form State
     const [uploadFile, setUploadFile] = useState(null);

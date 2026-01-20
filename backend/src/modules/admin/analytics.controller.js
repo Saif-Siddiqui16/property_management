@@ -10,7 +10,10 @@ exports.getRevenueStats = async (req, res) => {
 
         // 2. Projected Revenue (Requirement 7): Sum of monthlyRent across all Active leases
         const leaseAgg = await prisma.lease.aggregate({
-            where: { status: 'Active' },
+            where: {
+                status: 'Active',
+                tenant: { type: { not: 'RESIDENT' } }
+            },
             _sum: { monthlyRent: true }
         });
         const projectedRevenue = parseFloat(leaseAgg._sum.monthlyRent) || 0;

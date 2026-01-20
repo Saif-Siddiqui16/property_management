@@ -31,6 +31,7 @@ export const Tenants = () => {
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [tenantType, setTenantType] = useState('Individual');
   const [residents, setResidents] = useState([]);
+  const [companyContacts, setCompanyContacts] = useState([{ name: '', email: '', phone: '', role: '' }]);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [selectedBedroomId, setSelectedBedroomId] = useState('');
   const [isBedroomWise, setIsBedroomWise] = useState(false);
@@ -121,6 +122,7 @@ export const Tenants = () => {
       if (selectedUnitId && isBedroomWise) {
         try {
           const res = await api.get(`/api/admin/units/bedrooms/vacant?unitId=${selectedUnitId}`);
+
           setAvailableBedrooms(res.data || []);
         } catch (e) {
           console.error("Failed to fetch bedrooms", e);
@@ -207,6 +209,13 @@ export const Tenants = () => {
       bedroomId: isBedroomWise ? form.bedroomId.value : null,
       companyName: tenantType === 'Company' ? form.companyName.value : null,
       companyDetails: tenantType === 'Company' ? form.companyDetails.value : null,
+      street: tenantType === 'Company' ? form.street.value : null,
+      street2: tenantType === 'Company' ? form.street2.value : null,
+      city: tenantType === 'Company' ? form.city.value : null,
+      state: tenantType === 'Company' ? form.state.value : null,
+      postalCode: tenantType === 'Company' ? form.postalCode.value : null,
+      country: tenantType === 'Company' ? form.country.value : null,
+      companyContacts: tenantType === 'Company' ? companyContacts : [],
       residents: residents
     };
 
@@ -247,6 +256,7 @@ export const Tenants = () => {
     setSelectedBedroomId('');
     setTenantType('Individual');
     setResidents([]);
+    setCompanyContacts([{ name: '', email: '', phone: '', role: '' }]);
     setIsBedroomWise(false);
   };
 
@@ -269,6 +279,7 @@ export const Tenants = () => {
     if (tenant.bedroomId) setSelectedBedroomId(tenant.bedroomId.toString());
     if (tenant.type) setTenantType(tenant.type);
     setResidents(tenant.residents || []);
+    setCompanyContacts(tenant.companyContacts?.length > 0 ? tenant.companyContacts : [{ name: '', email: '', phone: '', role: '' }]);
     setShowModal(true);
   };
 
@@ -383,9 +394,11 @@ export const Tenants = () => {
                   <span className="text-sm text-slate-600 truncate">{tenant.email}</span>
 
                   <span className="w-fit">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.type === 'Company'
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.type === 'Company' || tenant.type === 'COMPANY'
                       ? 'bg-purple-50 text-purple-700 border-purple-100'
-                      : 'bg-blue-50 text-blue-700 border-blue-100'
+                      : tenant.type === 'Resident' || tenant.type === 'RESIDENT'
+                        ? 'bg-amber-50 text-amber-700 border-amber-100'
+                        : 'bg-blue-50 text-blue-700 border-blue-100'
                       }`}>
                       {tenant.type}
                     </span>
@@ -502,6 +515,7 @@ export const Tenants = () => {
                         >
                           <option value="Individual">Individual</option>
                           <option value="Company">Company</option>
+                          <option value="Resident">Resident</option>
                         </select>
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
                       </div>
@@ -509,25 +523,150 @@ export const Tenants = () => {
 
                     {tenantType === 'Company' && (
                       <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-100 animate-in slide-in-from-top-2 duration-200">
-                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Company Details</h5>
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-medium text-slate-600">Company Name</label>
-                          <input
-                            name="companyName"
-                            placeholder="Enter legal company name"
-                            defaultValue={editingTenant?.companyName || ''}
-                            required
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
-                          />
+                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Company Details & Address</h5>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-2 col-span-2">
+                            <label className="text-sm font-medium text-slate-600">Company Name</label>
+                            <input
+                              name="companyName"
+                              placeholder="Enter legal company name"
+                              defaultValue={editingTenant?.companyName || ''}
+                              required
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2 col-span-2">
+                            <label className="text-sm font-medium text-slate-600">Company ID / Registration No.</label>
+                            <input
+                              name="companyDetails"
+                              placeholder="Optional"
+                              defaultValue={editingTenant?.companyDetails || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2 col-span-2">
+                            <label className="text-sm font-medium text-slate-600">Address Line 1</label>
+                            <input
+                              name="street"
+                              placeholder="123 Main St"
+                              defaultValue={editingTenant?.street || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2 col-span-2">
+                            <label className="text-sm font-medium text-slate-600">Address Line 2 (Optional)</label>
+                            <input
+                              name="street2"
+                              placeholder="Apt 4B"
+                              defaultValue={editingTenant?.street2 || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-600">City</label>
+                            <input
+                              name="city"
+                              placeholder="City"
+                              defaultValue={editingTenant?.city || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-600">State / Province</label>
+                            <input
+                              name="state"
+                              placeholder="State"
+                              defaultValue={editingTenant?.state || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-600">Postal Code</label>
+                            <input
+                              name="postalCode"
+                              placeholder="Zip Code"
+                              defaultValue={editingTenant?.postalCode || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-slate-600">Country</label>
+                            <input
+                              name="country"
+                              placeholder="Country"
+                              defaultValue={editingTenant?.country || ''}
+                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
+                            />
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-medium text-slate-600">Company ID / Registration No.</label>
-                          <input
-                            name="companyDetails"
-                            placeholder="Optional"
-                            defaultValue={editingTenant?.companyDetails || ''}
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none bg-white font-medium"
-                          />
+
+                        {/* COMPANY CONTACTS SECTION */}
+                        <div className="pt-4 border-t border-slate-200">
+                          <div className="flex justify-between items-center mb-4">
+                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Company Contacts</h5>
+                            <button
+                              type="button"
+                              onClick={() => setCompanyContacts([...companyContacts, { name: '', email: '', phone: '', role: '' }])}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline"
+                            >
+                              + Add Contact
+                            </button>
+                          </div>
+                          <div className="space-y-4">
+                            {companyContacts.map((contact, idx) => (
+                              <div key={idx} className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setCompanyContacts(companyContacts.filter((_, i) => i !== idx))}
+                                  className="absolute top-2 right-2 text-slate-400 hover:text-rose-500"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input
+                                    placeholder="Full Name"
+                                    value={contact.name}
+                                    onChange={(e) => {
+                                      const newContacts = [...companyContacts];
+                                      newContacts[idx].name = e.target.value;
+                                      setCompanyContacts(newContacts);
+                                    }}
+                                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none font-medium"
+                                  />
+                                  <input
+                                    placeholder="Role (e.g. Manager)"
+                                    value={contact.role}
+                                    onChange={(e) => {
+                                      const newContacts = [...companyContacts];
+                                      newContacts[idx].role = e.target.value;
+                                      setCompanyContacts(newContacts);
+                                    }}
+                                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none"
+                                  />
+                                  <input
+                                    placeholder="Email"
+                                    value={contact.email}
+                                    onChange={(e) => {
+                                      const newContacts = [...companyContacts];
+                                      newContacts[idx].email = e.target.value;
+                                      setCompanyContacts(newContacts);
+                                    }}
+                                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none"
+                                  />
+                                  <input
+                                    placeholder="Phone"
+                                    value={contact.phone}
+                                    onChange={(e) => {
+                                      const newContacts = [...companyContacts];
+                                      newContacts[idx].phone = e.target.value;
+                                      setCompanyContacts(newContacts);
+                                    }}
+                                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -551,34 +690,56 @@ export const Tenants = () => {
 
                       <div className="space-y-3">
                         {residents.map((res, idx) => (
-                          <div key={idx} className="flex gap-2 items-center">
-                            <input
-                              placeholder="First Name"
-                              value={res.firstName}
-                              onChange={(e) => {
-                                const newRes = [...residents];
-                                newRes[idx].firstName = e.target.value;
-                                setResidents(newRes);
-                              }}
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none bg-white"
-                            />
-                            <input
-                              placeholder="Last Name"
-                              value={res.lastName}
-                              onChange={(e) => {
-                                const newRes = [...residents];
-                                newRes[idx].lastName = e.target.value;
-                                setResidents(newRes);
-                              }}
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none bg-white"
-                            />
+                          <div key={idx} className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 relative">
                             <button
                               type="button"
                               onClick={() => setResidents(residents.filter((_, i) => i !== idx))}
-                              className="text-rose-500 hover:text-rose-700"
+                              className="absolute top-2 right-2 text-slate-400 hover:text-rose-500"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={14} />
                             </button>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                placeholder="First Name"
+                                value={res.firstName}
+                                onChange={(e) => {
+                                  const newRes = [...residents];
+                                  newRes[idx].firstName = e.target.value;
+                                  setResidents(newRes);
+                                }}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none font-medium"
+                              />
+                              <input
+                                placeholder="Last Name"
+                                value={res.lastName}
+                                onChange={(e) => {
+                                  const newRes = [...residents];
+                                  newRes[idx].lastName = e.target.value;
+                                  setResidents(newRes);
+                                }}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none font-medium"
+                              />
+                              <input
+                                placeholder="Email"
+                                value={res.email}
+                                onChange={(e) => {
+                                  const newRes = [...residents];
+                                  newRes[idx].email = e.target.value;
+                                  setResidents(newRes);
+                                }}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none"
+                              />
+                              <input
+                                placeholder="Phone"
+                                value={res.phone}
+                                onChange={(e) => {
+                                  const newRes = [...residents];
+                                  newRes[idx].phone = e.target.value;
+                                  setResidents(newRes);
+                                }}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm outline-none"
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -639,7 +800,7 @@ export const Tenants = () => {
                             >
                               <option value="">Select Bedroom</option>
                               {availableBedrooms.filter(b => b.unitId === parseInt(selectedUnitId)).map(b => (
-                                <option key={b.id} value={b.id}>{b.bedroomNumber}</option>
+                                <option key={b.id} value={b.id}>{b.originalBedroomNumber}</option>
                               ))}
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
@@ -1042,18 +1203,101 @@ const TenantDetail = ({ tenant, onBack }) => {
                 <p className="font-mono text-sm text-slate-600">TEN-{tenantData.id}</p>
               </div>
 
-              <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Contact Information</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-400 font-medium">Email</p>
-                    <p className="text-sm font-medium text-slate-700">{tenantData.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-medium">Phone</p>
-                    <p className="text-sm font-medium text-slate-700">{tenantData.phone}</p>
+              <div className="md:col-span-2 space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Contact Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Primary Email</p>
+                      <p className="text-sm font-bold text-slate-700">{tenantData.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Primary Phone</p>
+                      <p className="text-sm font-bold text-slate-700">{tenantData.phone}</p>
+                    </div>
                   </div>
                 </div>
+
+                {tenantData.type === 'Company' && (
+                  <>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                      <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Company Address</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <p className="text-xs text-slate-400 font-medium">Street Address</p>
+                          <p className="text-sm font-semibold text-slate-700">{tenantData.street || 'N/A'}</p>
+                          {tenantData.street2 && <p className="text-sm font-semibold text-slate-700">{tenantData.street2}</p>}
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">City</p>
+                          <p className="text-sm font-semibold text-slate-700">{tenantData.city || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">State / Province</p>
+                          <p className="text-sm font-semibold text-slate-700">{tenantData.state || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">Postal Code</p>
+                          <p className="text-sm font-semibold text-slate-700">{tenantData.postalCode || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">Country</p>
+                          <p className="text-sm font-semibold text-slate-700">{tenantData.country || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {tenantData.companyContacts && tenantData.companyContacts.length > 0 && (
+                      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Company Contacts</h4>
+                        <div className="space-y-3">
+                          {tenantData.companyContacts.map((contact, idx) => (
+                            <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center group">
+                              <div className="flex gap-4 items-center">
+                                <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 font-bold">
+                                  {contact.name[0]}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-800">{contact.name}</p>
+                                  <p className="text-xs text-slate-400 font-medium">{contact.role || 'No Role specified'}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[11px] font-bold text-slate-700">{contact.email}</p>
+                                <p className="text-[11px] text-slate-400">{contact.phone || 'No phone'}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {tenantData.residents && tenantData.residents.length > 0 && (
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Linked Residents</h4>
+                    <div className="space-y-3">
+                      {tenantData.residents.map((res, idx) => (
+                        <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
+                          <div className="flex gap-4 items-center">
+                            <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-indigo-500 font-bold">
+                              {res.firstName[0]}{res.lastName[0]}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{res.firstName} {res.lastName}</p>
+                              <span className="text-[10px] font-black uppercase text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">Resident</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[11px] font-bold text-slate-700">{res.email || 'No email'}</p>
+                            <p className="text-[11px] text-slate-400">{res.phone || 'No phone'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

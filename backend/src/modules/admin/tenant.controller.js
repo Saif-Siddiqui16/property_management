@@ -32,7 +32,9 @@ exports.getAllTenants = async (req, res) => {
                     }
                 },
                 insurances: true,
-                documents: true
+                documents: true,
+                companyContacts: true,
+                residents: true
             }
         });
 
@@ -61,6 +63,14 @@ exports.getAllTenants = async (req, res) => {
                 rentAmount: activeLease?.monthlyRent || 0,
                 insurance: t.insurances,
                 documents: t.documents,
+                street: t.street,
+                street2: t.street2,
+                city: t.city,
+                state: t.state,
+                postalCode: t.postalCode,
+                country: t.country,
+                companyContacts: t.companyContacts,
+                residents: t.residents,
                 inviteToken: t.inviteToken,
                 hasPortalAccess: !!t.password
             };
@@ -84,13 +94,48 @@ exports.getTenantById = async (req, res) => {
                     include: { unit: true }
                 },
                 insurances: true,
-                documents: true
+                documents: true,
+                companyContacts: true,
+                residents: true
             }
         });
 
         if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
 
-        res.json(tenant);
+        // Fetch documents linked via DocumentLink (Multi-Entity System)
+        const linkedDocs = await prisma.documentLink.findMany({
+            where: {
+                entityType: 'USER',
+                entityId: parseInt(id)
+            },
+            include: {
+                document: true
+            }
+        });
+
+        const linkedDocuments = linkedDocs.map(l => l.document);
+        const allDocuments = [...(tenant.documents || []), ...linkedDocuments];
+        // Deduplicate documents by ID
+        const uniqueDocuments = Array.from(new Map(allDocuments.map(d => [d.id, d])).values());
+
+        const activeLease = tenant.leases.find(l => l.status === 'Active') || tenant.leases.find(l => l.status === 'DRAFT');
+
+        const formattedTenant = {
+            ...tenant,
+            documents: uniqueDocuments,
+            leaseStatus: tenant.leases?.[0]?.status || 'No Lease',
+            type: tenant.type === 'RESIDENT' ? 'Resident' : (tenant.companyName ? 'Company' : 'Individual'),
+            propertyId: activeLease?.unit?.propertyId || tenant.buildingId || null,
+            unitId: activeLease?.unitId || tenant.unitId || null,
+            bedroomId: activeLease?.bedroomId || tenant.bedroomId || null,
+            property: activeLease?.unit?.property?.name || 'No Property',
+            unit: activeLease?.unit?.name || 'No Unit',
+            leaseStartDate: activeLease?.startDate || null,
+            leaseEndDate: activeLease?.endDate || null,
+            rentAmount: activeLease?.monthlyRent || 0,
+        };
+
+        res.json(formattedTenant);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -125,13 +170,14 @@ exports.createTenant = async (req, res) => {
                     email,
                     phone,
                     type: type ? type.toUpperCase() : 'INDIVIDUAL',
-                    companyName: type === 'COMPANY' ? companyName : null,
-                    companyDetails: type === 'COMPANY' ? companyDetails : null,
-                    street: type === 'COMPANY' ? req.body.street : null,
-                    city: type === 'COMPANY' ? req.body.city : null,
-                    state: type === 'COMPANY' ? req.body.state : null,
-                    postalCode: type === 'COMPANY' ? req.body.postalCode : null,
-                    country: type === 'COMPANY' ? req.body.country : null,
+                    companyName: (type && type.toUpperCase() === 'COMPANY') ? companyName : null,
+                    companyDetails: (type && type.toUpperCase() === 'COMPANY') ? companyDetails : null,
+                    street: (type && type.toUpperCase() === 'COMPANY') ? req.body.street : null,
+                    street2: (type && type.toUpperCase() === 'COMPANY') ? req.body.street2 : null,
+                    city: (type && type.toUpperCase() === 'COMPANY') ? req.body.city : null,
+                    state: (type && type.toUpperCase() === 'COMPANY') ? req.body.state : null,
+                    postalCode: (type && type.toUpperCase() === 'COMPANY') ? req.body.postalCode : null,
+                    country: (type && type.toUpperCase() === 'COMPANY') ? req.body.country : null,
                     role: 'TENANT',
                     buildingId: propertyId ? parseInt(propertyId) : null,
                     unitId: unitId ? parseInt(unitId) : null,
@@ -144,7 +190,7 @@ exports.createTenant = async (req, res) => {
             });
 
             // 1.5 Handle Company Contacts
-            if (type === 'COMPANY' && req.body.companyContacts && Array.isArray(req.body.companyContacts)) {
+            if (type && type.toUpperCase() === 'COMPANY' && req.body.companyContacts && Array.isArray(req.body.companyContacts)) {
                 await prisma.companyContact.createMany({
                     data: req.body.companyContacts.map(c => ({
                         companyId: newUser.id,
@@ -309,13 +355,14 @@ exports.updateTenant = async (req, res) => {
                     email,
                     phone,
                     type: type ? type.toUpperCase() : undefined,
-                    companyName: type === 'COMPANY' ? companyName : null,
-                    companyDetails: type === 'COMPANY' ? companyDetails : null,
-                    street: type === 'COMPANY' ? req.body.street : undefined,
-                    city: type === 'COMPANY' ? req.body.city : undefined,
-                    state: type === 'COMPANY' ? req.body.state : undefined,
-                    postalCode: type === 'COMPANY' ? req.body.postalCode : undefined,
-                    country: type === 'COMPANY' ? req.body.country : undefined,
+                    companyName: (type && type.toUpperCase() === 'COMPANY') ? companyName : null,
+                    companyDetails: (type && type.toUpperCase() === 'COMPANY') ? companyDetails : null,
+                    street: (type && type.toUpperCase() === 'COMPANY') ? req.body.street : undefined,
+                    street2: (type && type.toUpperCase() === 'COMPANY') ? req.body.street2 : undefined,
+                    city: (type && type.toUpperCase() === 'COMPANY') ? req.body.city : undefined,
+                    state: (type && type.toUpperCase() === 'COMPANY') ? req.body.state : undefined,
+                    postalCode: (type && type.toUpperCase() === 'COMPANY') ? req.body.postalCode : undefined,
+                    country: (type && type.toUpperCase() === 'COMPANY') ? req.body.country : undefined,
                     buildingId: propertyId ? parseInt(propertyId) : null,
                     unitId: unitId ? parseInt(unitId) : null,
                     bedroomId: bedroomId ? parseInt(bedroomId) : null
@@ -323,7 +370,7 @@ exports.updateTenant = async (req, res) => {
             });
 
             // 1.5 Sync Company Contacts
-            if (type === 'COMPANY' && req.body.companyContacts && Array.isArray(req.body.companyContacts)) {
+            if (type && type.toUpperCase() === 'COMPANY' && req.body.companyContacts && Array.isArray(req.body.companyContacts)) {
                 await prisma.companyContact.deleteMany({ where: { companyId: id } });
                 await prisma.companyContact.createMany({
                     data: req.body.companyContacts.map(c => ({

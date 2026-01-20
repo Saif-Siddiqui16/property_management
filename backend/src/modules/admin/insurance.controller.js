@@ -240,6 +240,55 @@ exports.rejectInsurance = async (req, res) => {
     }
 };
 
+// POST /api/admin/insurance
+exports.createInsurance = async (req, res) => {
+    try {
+        const { leaseId, provider, policyNumber, coverageType, startDate, endDate, documentId } = req.body;
+
+        if (!leaseId || !provider || !policyNumber || !startDate || !endDate) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const lease = await prisma.lease.findUnique({
+            where: { id: parseInt(leaseId) },
+            include: { unit: true }
+        });
+
+        if (!lease) return res.status(404).json({ message: 'Lease not found' });
+
+        const insurance = await prisma.insurance.create({
+            data: {
+                userId: lease.tenantId,
+                leaseId: lease.id,
+                unitId: lease.unitId,
+                provider,
+                policyNumber,
+                coverageType: coverageType || 'Liability',
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                uploadedDocumentId: documentId ? parseInt(documentId) : null,
+                status: 'PENDING_APPROVAL'
+            }
+        });
+
+        res.status(201).json(insurance);
+    } catch (e) {
+        console.error('Create Insurance Error:', e);
+        res.status(500).json({ message: 'Failed to create insurance record' });
+    }
+};
+
+// POST /api/admin/insurance/trigger-checks
+exports.triggerInsuranceChecks = async (req, res) => {
+    try {
+        await exports.checkInsuranceExpirations();
+        res.json({ message: 'Insurance expiration checks triggered successfully' });
+    } catch (e) {
+        console.error('Trigger Checks Error:', e);
+        res.status(500).json({ message: 'Failed to trigger checks' });
+    }
+};
+
 // GET /api/admin/insurance/stats
 exports.getInsuranceStats = async (req, res) => {
     try {

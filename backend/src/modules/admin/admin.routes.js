@@ -66,6 +66,8 @@ router.delete('/leases/:id', leaseController.deleteLease);
 router.put('/leases/:id', leaseController.updateLease);
 router.get('/leases/:id/download', leaseController.downloadLeasePDF);
 
+router.post('/insurance', insuranceController.createInsurance);
+router.post('/insurance/trigger-checks', insuranceController.triggerInsuranceChecks);
 router.get('/insurance/compliance', insuranceController.getComplianceDashboard);
 router.post('/insurance/check-alerts', insuranceController.checkInsuranceExpirations);
 router.get('/insurance/alerts', insuranceController.getInsuranceAlerts);

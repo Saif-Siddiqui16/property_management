@@ -1,4 +1,5 @@
 const prisma = require('../../config/prisma');
+const { normalizeBedroomIdentifier } = require('../../utils/identifier.utils');
 
 // GET /api/admin/units
 exports.getAllUnits = async (req, res) => {
@@ -115,7 +116,7 @@ exports.createUnit = async (req, res) => {
 
             // Normalize all bedrooms to {BuildingCivicNumber}-{UnitNumber}-{BedroomSequence}
             bedroomsToCreate = Array.from({ length: numBedrooms }).map((_, i) => ({
-                bedroomNumber: `${civic}-${uNum}-${i + 1}`,
+                bedroomNumber: normalizeBedroomIdentifier(civic, uNum, i + 1),
                 roomNumber: i + 1,
                 unitId: newUnit.id,
                 status: 'Vacant',
@@ -161,11 +162,26 @@ exports.getUnitDetails = async (req, res) => {
                 },
                 bedroomsList: {
                     orderBy: { roomNumber: 'asc' }
-                }
+                },
+                documents: true // Fetch legacy documents
             }
         });
 
         if (!unit) return res.status(404).json({ message: 'Unit not found' });
+
+        // Fetch documents linked via DocumentLink
+        const linkedDocs = await prisma.documentLink.findMany({
+            where: {
+                entityType: 'UNIT',
+                entityId: parseInt(id)
+            },
+            include: { document: true }
+        });
+
+        const linkedDocuments = linkedDocs.map(l => l.document);
+        const allDocuments = [...(unit.documents || []), ...linkedDocuments];
+        // Deduplicate
+        const uniqueDocuments = Array.from(new Map(allDocuments.map(d => [d.id, d])).values());
 
         const activeLease = unit.leases.find(l => l.status === 'Active');
         const history = unit.leases.filter(l => l.status !== 'Active');
@@ -182,15 +198,15 @@ exports.getUnitDetails = async (req, res) => {
             status: unit.status,
             bedrooms: unit.bedrooms,
             rentalMode: unit.rentalMode, // Added rentalMode to response
+            documents: uniqueDocuments, // Return merged documents
             bedroomsList: unit.bedroomsList.map(b => ({
                 id: b.id,
-                bedroomNumber: `${unit.property.civicNumber || ''}-${unit.unitNumber || unit.name}-${b.roomNumber}`,
+                bedroomNumber: normalizeBedroomIdentifier(unit.property.civicNumber, unit.unitNumber || unit.name, b.roomNumber),
                 originalBedroomNumber: b.bedroomNumber,
                 roomNumber: b.roomNumber,
                 status: b.status,
                 rentAmount: b.rentAmount
-            })),
-            activeLease: activeLease ? {
+            })), activeLease: activeLease ? {
                 tenantName: activeLease.tenant.name,
                 startDate: activeLease.startDate,
                 endDate: activeLease.endDate,
@@ -260,7 +276,7 @@ exports.updateUnit = async (req, res) => {
 
             // 1. Update existing bedrooms or create new ones up to numBedrooms
             for (let i = 0; i < numBedrooms; i++) {
-                const newName = `${civic}-${uNum}-${i + 1}`;
+                const newName = normalizeBedroomIdentifier(civic, uNum, i + 1);
 
                 if (i < existingBedrooms.length) {
                     // Update existing
@@ -351,7 +367,7 @@ exports.getVacantBedrooms = async (req, res) => {
         // Format bedrooms for dropdown: [Property Name]-[Bedroom Number] (e.g., 82-101-1)
         const formatted = bedrooms.map(b => ({
             id: b.id,
-            bedroomNumber: `${b.unit.property.civicNumber || ''}-${b.unit.unitNumber || b.unit.name}-${b.roomNumber}`,
+            bedroomNumber: normalizeBedroomIdentifier(b.unit.property.civicNumber, b.unit.unitNumber || b.unit.name, b.roomNumber),
             originalBedroomNumber: b.bedroomNumber,
             displayName: `${b.unit.property.name}-${b.unit.property.civicNumber || ''}-${b.unit.unitNumber || b.unit.name}-${b.roomNumber}`,
             unitNumber: b.unit.unitNumber,

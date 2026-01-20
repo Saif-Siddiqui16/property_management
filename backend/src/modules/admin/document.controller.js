@@ -1,7 +1,8 @@
 const prisma = require('../../config/prisma');
 const path = require('path');
-const documentService = require('../../services/documentService');
+const documentService = require('../../services/document.service');
 const fs = require('fs');
+const https = require('https');
 
 // GET /api/admin/documents
 exports.getAllDocuments = async (req, res) => {
@@ -12,7 +13,8 @@ exports.getAllDocuments = async (req, res) => {
                 lease: true,
                 unit: true,
                 property: true,
-                invoice: true
+                invoice: true,
+                links: true // Include links for visibility if needed
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -23,8 +25,6 @@ exports.getAllDocuments = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
-const https = require('https');
 
 // GET /api/admin/documents/:id/download
 exports.downloadDocument = async (req, res) => {
@@ -85,7 +85,7 @@ exports.uploadDocument = async (req, res) => {
         }
 
         const file = req.files.file;
-        const { type, name, expiryDate, links } = req.body;
+        const { type, name, expiryDate, links, userId, unitId, leaseId, propertyId, invoiceId } = req.body;
 
         if (!type) {
             return res.status(400).json({ message: 'Document type is required.' });
@@ -111,12 +111,17 @@ exports.uploadDocument = async (req, res) => {
         }
 
         // Use service to create record and links
-        const doc = await documentService.linkDocument({
+        const doc = await documentService.createDocument({
             name: name || file.name,
             type,
             fileUrl: `/uploads/${path.basename(uploadPath)}`,
             links: parsedLinks,
-            expiryDate
+            expiryDate,
+            userId,
+            unitId,
+            leaseId,
+            propertyId,
+            invoiceId
         });
 
         res.status(201).json(doc);

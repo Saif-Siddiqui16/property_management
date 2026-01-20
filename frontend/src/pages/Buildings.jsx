@@ -8,6 +8,12 @@ import api from '../api/client';
 export const Buildings = () => {
   const [buildings, setBuildings] = useState([]);
   const [search, setSearch] = useState('');
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -16,9 +22,18 @@ export const Buildings = () => {
 
   // Fetch buildings and owners from API
   useEffect(() => {
-    fetchBuildings();
+    fetchBuildings(currentPage, search);
     fetchOwners();
-  }, []);
+  }, [currentPage, itemsPerPage]); // Re-fetch when page changes. Search is handled by explicit enter/debounce usually, but here we can add it to deps with debounce or use a specific trigger. For now, let's trigger on debounce or form submit. 
+  // BETTER UX: Trigger on search change with debounce.
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setCurrentPage(1); // Reset to page 1 on search
+      fetchBuildings(1, search);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
+
 
   const fetchOwners = async () => {
     try {
@@ -29,19 +44,29 @@ export const Buildings = () => {
     }
   };
 
-  const fetchBuildings = async () => {
+  const fetchBuildings = async (page = 1, searchQuery = '') => {
     try {
-      const response = await api.get('/api/admin/properties');
-      setBuildings(response.data);
+      // Use pagination endpoint
+      const response = await api.get(`/api/admin/properties?page=${page}&limit=${itemsPerPage}&search=${searchQuery}`);
+
+      if (response.data.data && response.data.meta) {
+        // Handle paginated response
+        setBuildings(response.data.data);
+        setTotalPages(response.data.meta.totalPages);
+        setTotalItems(response.data.meta.total);
+      } else {
+        // Fallback or full list (shouldn't happen with params)
+        setBuildings(response.data);
+      }
     } catch (error) {
       console.error('Error fetching buildings:', error);
     }
   };
 
-  // Filter buildings based on search
-  const filteredBuildings = buildings.filter(building =>
-    building.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Client-side filtering is no longer needed if we use backend search
+  // But strictly speaking, the original code had client side filtering. 
+  // If backend returns paginated results, we MUST use backend search. 
+  const filteredBuildings = buildings; // Direct use as backend handles filtering
 
   // Add new building
   const addBuilding = async (e) => {
@@ -61,7 +86,8 @@ export const Buildings = () => {
 
     try {
       const response = await api.post('/api/admin/properties', newBuilding);
-      setBuildings([...buildings, response.data]);
+      // setBuildings([...buildings, response.data]); // Can't just append to paginated list easily. Better to re-fetch.
+      fetchBuildings(currentPage, search);
       setShowModal(false);
       form.reset();
     } catch (error) {
@@ -75,7 +101,8 @@ export const Buildings = () => {
     if (window.confirm('Are you sure you want to delete this building?')) {
       try {
         await api.delete(`/api/admin/properties/${id}`);
-        setBuildings(buildings.filter(b => b.id !== id));
+        // Refresh list
+        fetchBuildings(currentPage, search);
       } catch (error) {
         console.error('Error deleting building:', error);
         alert('Error deleting building');
@@ -112,7 +139,7 @@ export const Buildings = () => {
 
     try {
       const response = await api.put(`/api/admin/properties/${currentBuilding.id}`, updatedData);
-      setBuildings(buildings.map(b => b.id === currentBuilding.id ? response.data : b));
+      fetchBuildings(currentPage, search);
       setShowEditModal(false);
       form.reset();
     } catch (error) {
@@ -124,14 +151,14 @@ export const Buildings = () => {
   return (
     <MainLayout title="Buildings">
       <div className="flex flex-col gap-6">
-        {/* Header with stats cards */}
+        {/* Header with stats cards - Using totalItems from meta if available */}
         <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6 mb-4">
           <div className="relative overflow-hidden rounded-2xl p-6 flex items-center gap-4 shadow-[0_10px_30px_rgba(102,126,234,0.2)] bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white transition-all duration-300 hover:-translate-y-1 hover:rotate-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom-5 fade-in duration-500">
             <div className="w-[60px] h-[60px] bg-white/20 rounded-xl flex items-center justify-center text-white backdrop-blur-sm">
               <Building2 size={24} />
             </div>
             <div>
-              <h3 className="text-[2rem] font-bold leading-none">{buildings.length}</h3>
+              <h3 className="text-[2rem] font-bold leading-none">{totalItems}</h3>
               <p className="text-white/90 text-sm mt-1">Total Buildings</p>
             </div>
           </div>
@@ -141,8 +168,8 @@ export const Buildings = () => {
               <Home size={24} />
             </div>
             <div>
-              <h3 className="text-[2rem] font-bold leading-none">{buildings.reduce((sum, b) => sum + b.units, 0)}</h3>
-              <p className="text-white/90 text-sm mt-1">Total Units</p>
+              <h3 className="text-[2rem] font-bold leading-none">-</h3>
+              <p className="text-white/90 text-sm mt-1">Total Units (Stats need update)</p>
             </div>
           </div>
 
@@ -151,8 +178,8 @@ export const Buildings = () => {
               <div className="w-5 h-5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_15px_rgba(52,211,153,0.6)]"></div>
             </div>
             <div>
-              <h3 className="text-[2rem] font-bold leading-none">{buildings.filter(b => b.status === 'Active').length}</h3>
-              <p className="text-white/90 text-sm mt-1">Active Buildings</p>
+              <h3 className="text-[2rem] font-bold leading-none">-</h3>
+              <p className="text-white/90 text-sm mt-1">Active Buildings (Stats need update)</p>
             </div>
           </div>
         </div>
@@ -170,10 +197,6 @@ export const Buildings = () => {
                 className="bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400 w-full text-sm"
               />
             </div>
-            <Button variant="secondary" className="hidden md:flex">
-              <Filter size={16} />
-              Filter
-            </Button>
           </div>
           <Button variant="primary" onClick={() => setShowModal(true)} className="whitespace-nowrap">
             <Plus size={18} />
@@ -182,8 +205,8 @@ export const Buildings = () => {
         </div>
 
         {/* Table Card */}
-        <Card className="bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-full overflow-x-auto">
+        <Card className="bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-500 flex flex-col h-full">
+          <div className="w-full overflow-x-auto flex-1">
             <div className="hidden md:grid grid-cols-9 min-w-[1200px] bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b-2 border-slate-200">
               <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Civic Number</div>
               <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Building Name</div>
@@ -197,74 +220,116 @@ export const Buildings = () => {
             </div>
 
             <div className="bg-white">
-              {filteredBuildings.map((building, index) => (
-                <div
-                  key={building.id}
-                  className="grid grid-cols-1 md:grid-cols-9 min-w-[1200px] px-6 py-4 border-b border-slate-100 transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:scale-[1.002] hover:shadow-md items-center gap-4 md:gap-0"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="flex items-center">
-                    <span className="font-bold text-[#667eea] text-lg">{building.civicNumber || '-'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#667eea] to-[#764ba2] rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm">
-                      <Building2 size={16} />
+              {filteredBuildings.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">No buildings found.</div>
+              ) : (
+                filteredBuildings.map((building, index) => (
+                  <div
+                    key={building.id}
+                    className="grid grid-cols-1 md:grid-cols-9 min-w-[1200px] px-6 py-4 border-b border-slate-100 transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:scale-[1.002] hover:shadow-md items-center gap-4 md:gap-0"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className="flex items-center">
+                      <span className="font-bold text-[#667eea] text-lg">{building.civicNumber || '-'}</span>
                     </div>
-                    <span className="font-medium text-slate-700 text-sm">{building.name}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-[#667eea] to-[#764ba2] rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm">
+                        <Building2 size={16} />
+                      </div>
+                      <span className="font-medium text-slate-700 text-sm">{building.name}</span>
+                    </div>
+                    <div className="text-slate-600 text-sm truncate" title={building.street}>
+                      {building.street || '-'}
+                    </div>
+                    <div className="text-slate-600 text-sm">
+                      {building.city || '-'}
+                    </div>
+                    <div className="text-slate-600 text-sm">
+                      {building.province || '-'}
+                    </div>
+                    <div className="text-slate-600 text-sm">
+                      {building.postalCode || '-'}
+                    </div>
+                    <div className="flex justify-between md:block md:w-auto w-full">
+                      <span className="text-[1rem] font-semibold text-[#667eea]">{building.units}</span>
+                    </div>
+                    <div className="flex justify-between md:block md:w-auto w-full">
+                      <span
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit ${building.status === 'Active'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${building.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                        {building.status}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 justify-end md:justify-start">
+                      <button
+                        className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-sky-50 text-sky-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(2,132,199,0.2)] hover:scale-110 group relative"
+                        title="View Details"
+                        onClick={() => viewBuilding(building)}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-emerald-50 text-emerald-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(22,163,74,0.2)] hover:scale-110 group relative"
+                        title="Edit Building"
+                        onClick={() => editBuilding(building)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-red-50 text-red-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(220,38,38,0.2)] hover:scale-110 group relative"
+                        title="Delete Building"
+                        onClick={() => deleteBuilding(building.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-slate-600 text-sm truncate" title={building.street}>
-                    {building.street || '-'}
-                  </div>
-                  <div className="text-slate-600 text-sm">
-                    {building.city || '-'}
-                  </div>
-                  <div className="text-slate-600 text-sm">
-                    {building.province || '-'}
-                  </div>
-                  <div className="text-slate-600 text-sm">
-                    {building.postalCode || '-'}
-                  </div>
-                  <div className="flex justify-between md:block md:w-auto w-full">
-                    <span className="text-[1rem] font-semibold text-[#667eea]">{building.units}</span>
-                  </div>
-                  <div className="flex justify-between md:block md:w-auto w-full">
-                    <span
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit ${building.status === 'Active'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-red-100 text-red-800'
-                        }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${building.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                      {building.status}
-                    </span>
-                  </div>
-                  <div className="flex gap-2 justify-end md:justify-start">
-                    <button
-                      className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-sky-50 text-sky-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(2,132,199,0.2)] hover:scale-110 group relative"
-                      title="View Details"
-                      onClick={() => viewBuilding(building)}
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button
-                      className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-emerald-50 text-emerald-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(22,163,74,0.2)] hover:scale-110 group relative"
-                      title="Edit Building"
-                      onClick={() => editBuilding(building)}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-red-50 text-red-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(220,38,38,0.2)] hover:scale-110 group relative"
-                      title="Delete Building"
-                      onClick={() => deleteBuilding(building.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                )))}
             </div>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center p-4 border-t border-slate-100 bg-slate-50">
+              <div className="text-sm text-slate-500">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  className={currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}
+                >
+                  Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium transition-all ${currentPage === page
+                        ? 'bg-[#667eea] text-white shadow-md scale-105'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <Button
+                  variant="secondary"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  className={currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Add Building Modal */}

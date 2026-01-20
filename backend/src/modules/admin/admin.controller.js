@@ -125,6 +125,73 @@ exports.getAvailableProperties = async (req, res) => {
 
 exports.getProperties = async (req, res) => {
     try {
+        const { page, limit, search } = req.query;
+
+        // If pagination params are provided, return paginated response
+        if (page && limit) {
+            const pageNum = parseInt(page);
+            const limitNum = parseInt(limit);
+            const skip = (pageNum - 1) * limitNum;
+
+            const where = {};
+            if (search) {
+                where.OR = [
+                    { name: { contains: search } }, // Case insensitive usually handled by Prisma depending on DB collation or mode: 'insensitive'
+                    { street: { contains: search } },
+                    { city: { contains: search } }
+                ];
+            }
+
+            const [total, properties] = await Promise.all([
+                prisma.property.count({ where }),
+                prisma.property.findMany({
+                    where,
+                    skip,
+                    take: limitNum,
+                    include: {
+                        units: {
+                            select: {
+                                status: true
+                            }
+                        }
+                    },
+                    orderBy: { name: 'asc' }
+                })
+            ]);
+
+            const formatted = properties.map(p => {
+                const totalUnits = p.units.length;
+                const occupiedCount = p.units.filter(u => u.status !== 'Vacant').length;
+                const occupancyRate = totalUnits > 0 ? Math.round((occupiedCount / totalUnits) * 100) : 0;
+
+                return {
+                    id: p.id,
+                    name: p.name,
+                    address: p.address,
+                    civicNumber: p.civicNumber,
+                    street: p.street,
+                    city: p.city,
+                    province: p.province,
+                    postalCode: p.postalCode,
+                    units: totalUnits,
+                    occupancy: `${occupancyRate}%`,
+                    status: p.status,
+                    ownerId: p.ownerId
+                };
+            });
+
+            return res.json({
+                data: formatted,
+                meta: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(total / limitNum)
+                }
+            });
+        }
+
+        // Default behavior: Return all properties (Backward Compatibility)
         const properties = await prisma.property.findMany({
             include: {
                 units: {
@@ -132,7 +199,8 @@ exports.getProperties = async (req, res) => {
                         status: true
                     }
                 }
-            }
+            },
+            orderBy: { name: 'asc' }
         });
 
         const formatted = properties.map(p => {
@@ -152,7 +220,7 @@ exports.getProperties = async (req, res) => {
                 units: totalUnits,
                 occupancy: `${occupancyRate}%`,
                 status: p.status,
-                ownerId: p.ownerId // Required for filtering in Owners.jsx
+                ownerId: p.ownerId
             };
         });
 
@@ -181,11 +249,26 @@ exports.getPropertyDetails = async (req, res) => {
                             where: { status: 'paid' }
                         }
                     }
-                }
+                },
+                documents: true // Fetch legacy documents
             }
         });
 
         if (!property) return res.status(404).json({ message: 'Property not found' });
+
+        // Fetch documents linked via DocumentLink
+        const linkedDocs = await prisma.documentLink.findMany({
+            where: {
+                entityType: 'PROPERTY',
+                entityId: propertyId
+            },
+            include: { document: true }
+        });
+
+        const linkedDocuments = linkedDocs.map(l => l.document);
+        const allDocuments = [...(property.documents || []), ...linkedDocuments];
+        // Deduplicate
+        const uniqueDocuments = Array.from(new Map(allDocuments.map(d => [d.id, d])).values());
 
         const totalUnits = property.units.length;
         const occupiedCount = property.units.filter(u => u.status !== 'Vacant').length;
@@ -213,6 +296,7 @@ exports.getPropertyDetails = async (req, res) => {
             totalUnits,
             occupancyRate,
             revenue: totalRevenue,
+            documents: uniqueDocuments,
             units: formattedUnits
         });
 

@@ -20,6 +20,7 @@ model User {
   companyName       String?
   companyDetails    String?            @db.Text
   street            String?
+  street2           String?
   city              String?
   state             String?
   postalCode        String?
