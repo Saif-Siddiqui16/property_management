@@ -99,11 +99,15 @@ exports.createInvoice = async (req, res) => {
                 unitId: parseInt(unitId),
                 status: 'Active'
             },
-            include: { unit: true }
+            include: { unit: true, tenant: true }
         });
 
         if (!activeLease) {
             return res.status(400).json({ message: 'Invoices can only be generated for ACTIVE leases.' });
+        }
+
+        if (activeLease.tenant.type === 'RESIDENT') {
+            return res.status(400).json({ message: 'Invoices cannot be generated for RESIDENT tenants.' });
         }
 
         // Auto-populate rent if not provided
@@ -219,7 +223,10 @@ exports.runBatchInvoicing = async (req, res) => {
             where: {
                 status: 'Active',
                 startDate: { lte: today },
-                endDate: { gte: today }
+                endDate: { gte: today },
+                tenant: {
+                    type: { not: 'RESIDENT' }
+                }
             },
             include: { unit: true }
         });

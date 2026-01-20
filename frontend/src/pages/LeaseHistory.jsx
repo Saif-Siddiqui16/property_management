@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Trash2, X, FileText, Calendar, User, Home } from 'lucide-react';
+import { Eye, Pencil, Trash2, X, FileText, Calendar, User, Home, Bed } from 'lucide-react';
 import { Button } from '../components/Button';
 import api from '../api/client';
 
@@ -61,9 +61,13 @@ export const LeaseHistory = () => {
 
                 {/* ACTIONS */}
                 <div className="flex justify-end gap-3 actions-bar">
+                    <Button variant="secondary" onClick={() => navigate('/leases/new-bedroom')}>
+                        <Bed size={18} />
+                        Bedroom Lease
+                    </Button>
                     <Button variant="primary" onClick={() => navigate('/leases/new')}>
                         <FileText size={18} />
-                        New Lease
+                        Full Unit Lease
                     </Button>
                 </div>
 

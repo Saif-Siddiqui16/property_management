@@ -9,13 +9,11 @@ export const LeaseForm = () => {
   const navigate = useNavigate();
   const [buildings, setBuildings] = useState([]);
   const [units, setUnits] = useState([]);
-  const [bedrooms, setBedrooms] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [selectedBuilding, setSelectedBuilding] = useState('');
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [form, setForm] = useState({
     unitId: '',
-    bedroomId: '',
     tenantId: '',
     startDate: '',
     endDate: '',
@@ -52,9 +50,7 @@ export const LeaseForm = () => {
     const buildingId = e.target.value;
     setSelectedBuilding(buildingId);
     setUnits([]);
-    setBedrooms([]);
-    setSelectedUnit(null);
-    setForm({ ...form, unitId: '', bedroomId: '', tenantId: '' });
+    setForm({ ...form, unitId: '', tenantId: '' });
 
     if (buildingId) {
       try {
@@ -62,14 +58,21 @@ export const LeaseForm = () => {
         const unitsRes = await api.get(`/api/admin/units?propertyId=${buildingId}&limit=1000`);
         const allUnits = unitsRes.data.data || unitsRes.data;
 
-        // Fetch all active leases to find which units are already leased
-        const leasesRes = await api.get('/api/admin/leases');
-        const activeUnitNames = leasesRes.data
-          .filter(l => l.status === 'active')
-          .map(l => l.unit);
+        // Filter out units that are already leased
+        // For Full Unit Lease: Unit must have NO ACTIVE leases.
+        // DRAFT leases are okay to show (to complete activation).
+        const availableUnits = allUnits.filter(u => {
+          const hasActiveLease = (u.activeLeaseCount && u.activeLeaseCount > 0);
+          // If unit is physically occupied or has active leases, hide it.
+          if (hasActiveLease) return false;
+          if (u.status === 'Fully Booked' || u.status === 'Occupied') return false;
 
-        // Filter out units that already have an active lease
-        const availableUnits = allUnits.filter(u => !activeUnitNames.includes(u.unitNumber));
+          // If it's currently in BEDROOM_WISE mode and has draft leases, 
+          // we hide it from Full Unit selection to avoid mixed drafts.
+          if (u.rentalMode === 'BEDROOM_WISE' && u.draftLeaseCount > 0) return false;
+
+          return true;
+        });
 
         setUnits(availableUnits);
       } catch (error) {
@@ -80,8 +83,7 @@ export const LeaseForm = () => {
 
   const handleUnitChange = async (e) => {
     const unitId = e.target.value;
-    setForm({ ...form, unitId, bedroomId: '', tenantId: '' });
-    setBedrooms([]);
+    setForm({ ...form, unitId, tenantId: '' });
     setSelectedUnit(null);
 
     if (unitId) {
@@ -89,11 +91,6 @@ export const LeaseForm = () => {
       setSelectedUnit(unit);
 
       try {
-        // Fetch vacant bedrooms for this unit
-        const bedroomsRes = await api.get('/api/admin/units/bedrooms/vacant');
-        const unitBedrooms = bedroomsRes.data.filter(b => b.unitId === parseInt(unitId));
-        setBedrooms(unitBedrooms);
-
         // Check if there's a DRAFT lease with tenant for this unit
         const leaseRes = await api.get(`/api/admin/leases/active/${unitId}`);
         if (leaseRes.data && leaseRes.data.tenantId) {
@@ -103,7 +100,7 @@ export const LeaseForm = () => {
           }));
         }
       } catch (error) {
-        console.error('Failed to fetch bedrooms', error);
+        console.error('Failed to fetch draft lease', error);
       }
     }
   };
@@ -118,7 +115,6 @@ export const LeaseForm = () => {
       const payload = {
         unitId: parseInt(form.unitId),
         tenantId: parseInt(form.tenantId),
-        bedroomId: form.bedroomId ? parseInt(form.bedroomId) : null,
         startDate: form.startDate,
         endDate: form.endDate,
         monthlyRent: parseFloat(form.monthlyRent) || 0,
@@ -143,7 +139,7 @@ export const LeaseForm = () => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-slate-800 m-0">New Lease</h2>
-            <p className="text-slate-500 text-sm mt-1">Create a lease for an apartment unit or bedroom</p>
+            <p className="text-slate-500 text-sm mt-1">Create a full unit lease</p>
           </div>
         </div>
 

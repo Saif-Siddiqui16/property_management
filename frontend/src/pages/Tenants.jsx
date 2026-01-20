@@ -170,14 +170,34 @@ export const Tenants = () => {
   /* ➕ ADD/EDIT TENANT */
   const handleSaveTenant = async (e) => {
     e.preventDefault();
+    console.log("handleSaveTenant called");
     const form = e.target;
+
+    // Debug form fields
+    console.log("Form check - Phone:", form.phone.value);
+    console.log("Form check - Email:", form.email.value);
+    console.log("Form check - Password input exists:", !!form.password);
+
+    // Validate Phone Number (must be +1 followed by 10 digits)
+    // Remove spaces, dashes, parentheses for the check
+    const rawPhone = form.phone.value;
+    const cleanPhone = rawPhone.replace(/[\s-()]/g, '');
+
+    // Strict Canada/US format check: +1XXXXXXXXXX
+    const phoneRegex = /^\+1\d{10}$/;
+
+    if (!phoneRegex.test(cleanPhone)) {
+      alert("Invalid Phone Number Configured for SMS.\n\nPlease enter a valid number starting with +1 followed by 10 digits.\nExample: +15143216767\n\n(Note: Twilio trial requires verified numbers)");
+      return;
+    }
 
     const payload = {
       firstName: form.firstName.value,
       lastName: form.lastName.value,
       type: tenantType,
       email: form.email.value,
-      phone: form.phone.value,
+      password: form.password?.value,
+      phone: cleanPhone, // Send the cleaned phone number
       propertyId: selectedPropertyId,
       unitId: selectedUnitId,
       bedroomId: isBedroomWise ? form.bedroomId.value : null,
@@ -187,11 +207,25 @@ export const Tenants = () => {
     };
 
     try {
+      let res;
       if (editingTenant) {
-        await api.put(`/api/admin/tenants/${editingTenant.id}`, payload);
+        res = await api.put(`/api/admin/tenants/${editingTenant.id}`, payload);
       } else {
-        await api.post('/api/admin/tenants', payload);
+        res = await api.post('/api/admin/tenants', payload);
       }
+
+      // Check SMS Status if response contains it
+      if (res.data?.smsResult) {
+        if (res.data.smsResult.success) {
+          alert("Tenant added successfully! \nSMS Credentials sent.");
+        } else {
+          alert(`Tenant added, BUT SMS Failed. \nError: ${res.data.smsResult.error || "Unknown Error"}`);
+        }
+      } else if (!editingTenant) {
+        // Fallback if no smsResult but valid tenant creation
+        alert('Tenant added successfully!');
+      }
+
       await fetchTenants();
       await fetchDropdownData();
       setShowModal(false);
@@ -633,12 +667,25 @@ export const Tenants = () => {
                       <input
                         name="phone"
                         type="tel"
-                        placeholder="e.g. +1 (555) 000-0000"
+                        placeholder="e.g. +15143216767"
                         defaultValue={editingTenant?.phone || ''}
                         required
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium"
                       />
                     </div>
+
+                    {!editingTenant && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-slate-600">Password</label>
+                        <input
+                          name="password"
+                          type="text"
+                          placeholder="Enter password"
+                          required
+                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -647,7 +694,7 @@ export const Tenants = () => {
                   <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
                     <AlertCircle className="text-amber-500 shrink-0" size={20} />
                     <p className="text-xs text-amber-700 font-medium">
-                      An invite email will be sent to the tenant to set their password. No manual password creation is required.
+                      Credentials (Email & Password) will be sent to the tenant's mobile number via SMS.
                     </p>
                   </div>
                 )}
