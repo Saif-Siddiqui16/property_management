@@ -63,7 +63,6 @@ export const LeaseFormBedroom = () => {
                 // Fetch units for this building
                 const res = await api.get(`/api/admin/units?propertyId=${buildingId}&limit=1000`);
                 const allUnits = res.data.data || res.data;
-<<<<<<< HEAD
 
                 // Filtering for Bedroom-wise Lease:
                 const filteredUnits = allUnits.filter(u => {
@@ -81,14 +80,6 @@ export const LeaseFormBedroom = () => {
                     if (isFullUnitMode && u.draftLeaseCount > 0) return false;
 
                     // 3. SHOWN: Everything else (Vacant units or Occupied units in BEDROOM_WISE mode with rooms left).
-=======
-
-                // Improved filtering for bedroom-wise leasing:
-                // Hide units that are "Fully Booked" OR are "Occupied" in Full Unit mode.
-                const filteredUnits = allUnits.filter(u => {
-                    if (u.status === 'Fully Booked') return false;
-                    if ((u.rentalMode === 'FULL_UNIT' || u.rentalMode === 1) && u.status === 'Occupied') return false;
->>>>>>> 635d552e17ce931499e9532934c68fbe644fca24
                     return true;
                 });
                 setUnits(filteredUnits);
