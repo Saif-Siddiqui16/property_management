@@ -59,7 +59,6 @@ export const LeaseForm = () => {
         const allUnits = unitsRes.data.data || unitsRes.data;
 
         // Filter out units that are already leased
-<<<<<<< HEAD
         // For Full Unit Lease: Unit must have NO ACTIVE leases.
         // DRAFT leases are okay to show (to complete activation).
         const availableUnits = allUnits.filter(u => {
@@ -74,11 +73,6 @@ export const LeaseForm = () => {
 
           return true;
         });
-=======
-        const availableUnits = allUnits.filter(u =>
-          u.status === 'Vacant' && u.rentalMode !== 'BEDROOM_WISE'
-        );
->>>>>>> 635d552e17ce931499e9532934c68fbe644fca24
 
         setUnits(availableUnits);
       } catch (error) {
