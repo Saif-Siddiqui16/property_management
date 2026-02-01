@@ -14,6 +14,8 @@ import {
     MoreVertical,
     Wrench,
     X,
+    Trash2,
+    Edit2,
     ClipboardList,
     TrendingUp,
     TrendingDown,
@@ -84,6 +86,16 @@ export const Maintenance = () => {
             await api.put(`/api/admin/maintenance/${task.dbId}`, { status: 'Completed' });
             fetchTasks();
         } catch (e) { alert('Failed'); }
+    };
+
+    const handleDeleteTask = async (dbId) => {
+        if (!window.confirm('Delete this maintenance task?')) return;
+        try {
+            await api.delete(`/api/admin/maintenance/${dbId}`);
+            fetchTasks();
+        } catch (e) {
+            alert('Failed to delete task');
+        }
     };
 
     const handleSaveTask = async (e) => {
@@ -214,11 +226,11 @@ export const Maintenance = () => {
                                     </span>
                                 </div>
 
-                                <div className="flex justify-end gap-2 text-slate-400">
+                                <div className="flex justify-end gap-2">
                                     {task.status !== 'Completed' && (
                                         <button
                                             onClick={() => handleMarkCompleted(task.id)}
-                                            className="p-2 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg transition-colors"
+                                            className="p-2 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg transition-colors bg-white border border-slate-200 shadow-sm"
                                             title="Mark as Completed"
                                         >
                                             <CheckCircle2 size={16} />
@@ -229,10 +241,17 @@ export const Maintenance = () => {
                                             setEditingTask(task);
                                             setShowAddModal(true);
                                         }}
-                                        className="p-2 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
+                                        className="p-2 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors bg-white border border-slate-200 shadow-sm"
                                         title="Edit Task"
                                     >
-                                        <MoreVertical size={16} />
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteTask(task.dbId)}
+                                        className="p-2 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors bg-white border border-slate-200 shadow-sm"
+                                        title="Delete Task"
+                                    >
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
                             </div>

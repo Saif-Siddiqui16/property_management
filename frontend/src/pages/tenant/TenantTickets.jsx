@@ -180,7 +180,7 @@ export const TenantTickets = () => {
             {/* TICKET DETAIL MODAL */}
             {selectedTicket && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 overflow-y-auto max-h-[90vh]">
                         <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                             <h3 className="text-xl font-black text-slate-800">{selectedTicket.id} Detail</h3>
                             <button onClick={() => setSelectedTicket(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all">

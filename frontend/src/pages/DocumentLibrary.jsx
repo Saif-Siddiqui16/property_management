@@ -241,7 +241,9 @@ export const DocumentLibrary = () => {
                                         } else if (doc.unit) {
                                             linkedEntity = `Unit: ${doc.unit.name || doc.unit.unitNumber || 'N/A'}`;
                                         } else if (doc.lease) {
-                                            linkedEntity = `Lease #${doc.lease.id}`;
+                                            linkedEntity = doc.lease.tenant
+                                                ? `Lease: ${doc.lease.tenant.name || `${doc.lease.tenant.firstName} ${doc.lease.tenant.lastName}`}`
+                                                : `Lease #${doc.lease.id}`;
                                         } else if (doc.invoice) {
                                             linkedEntity = `Invoice: ${doc.invoice.invoiceNo || doc.invoice.id}`;
                                         }
@@ -276,14 +278,22 @@ export const DocumentLibrary = () => {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => {
-                                                                const baseUrl = api.defaults.baseURL.endsWith('/')
-                                                                    ? api.defaults.baseURL.slice(0, -1)
-                                                                    : api.defaults.baseURL;
-                                                                const fileUrl = doc.fileUrl.startsWith('http')
-                                                                    ? doc.fileUrl
-                                                                    : `${baseUrl.replace('/api', '')}${doc.fileUrl}`;
-                                                                window.open(fileUrl, '_blank');
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const token = localStorage.getItem('accessToken');
+                                                                    const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download?disposition=inline`, {
+                                                                        headers: {
+                                                                            'Authorization': `Bearer ${token}`
+                                                                        }
+                                                                    });
+                                                                    if (!response.ok) throw new Error('Failed to open document');
+                                                                    const blob = await response.blob();
+                                                                    const url = window.URL.createObjectURL(blob);
+                                                                    window.open(url, '_blank');
+                                                                } catch (err) {
+                                                                    console.error("Failed to open document", err);
+                                                                    alert("Failed to open document");
+                                                                }
                                                             }}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                                                             title="Open"
@@ -455,7 +465,7 @@ export const DocumentLibrary = () => {
                                                 {linkType === 'USER' && dropdownData.tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                                 {linkType === 'PROPERTY' && dropdownData.properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.civicNumber}</option>)}
                                                 {linkType === 'UNIT' && dropdownData.units.map(u => <option key={u.id} value={u.id}>{u.unitNumber}</option>)}
-                                                {linkType === 'LEASE' && dropdownData.leases.map(l => <option key={l.id} value={l.id}>Lease #{l.id} - {l.tenantName}</option>)}
+                                                {linkType === 'LEASE' && dropdownData.leases.map(l => <option key={l.id} value={l.id}>{l.tenant}</option>)}
                                             </select>
                                         </div>
                                     </div>

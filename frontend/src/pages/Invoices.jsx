@@ -710,13 +710,19 @@ export const Invoices = () => {
                                             {parseFloat(form.serviceFees) > 0 && <span className="text-[9px] text-amber-600 font-bold uppercase">Disabled</span>}
                                         </div>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={form.rent}
-                                            onChange={(e) => setForm({ ...form, rent: e.target.value, serviceFees: '0' })}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                    setForm({ ...form, rent: val, serviceFees: '0', category: 'RENT' });
+                                                }
+                                            }}
                                             required={parseFloat(form.serviceFees) === 0}
                                             disabled={parseFloat(form.serviceFees) > 0}
-                                            readOnly={!!form.tenantId} // Phase 1: Rent pulled from lease is read-only
+                                            readOnly={!!form.tenantId && !editInvoice} // Allow overrides during edit mode
                                             className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-900 font-mono disabled:bg-slate-50 disabled:text-slate-400 read-only:bg-slate-50 read-only:text-indigo-600"
                                         />
                                     </div>
@@ -726,10 +732,16 @@ export const Invoices = () => {
                                             {parseFloat(form.rent) > 0 && <span className="text-[9px] text-amber-600 font-bold uppercase">Disabled</span>}
                                         </div>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={form.serviceFees}
-                                            onChange={(e) => setForm({ ...form, serviceFees: e.target.value, rent: '0' })}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                    setForm({ ...form, serviceFees: val, rent: '0', category: 'SERVICE' });
+                                                }
+                                            }}
                                             required={parseFloat(form.rent) === 0}
                                             disabled={parseFloat(form.rent) > 0}
                                             className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition-all font-medium text-slate-900 font-mono disabled:bg-slate-50 disabled:text-slate-400"

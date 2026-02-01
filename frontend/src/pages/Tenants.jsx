@@ -221,6 +221,9 @@ export const Tenants = () => {
       email: getVal('email'),
       phone: cleanPhone,
       parentId: tenantType === 'Resident' ? selectedParentId : null,
+      propertyId: selectedPropertyId || null,
+      unitId: selectedUnitId || null,
+      bedroomId: selectedBedroomId || null,
       companyName: tenantType === 'Company' ? getVal('companyName') : null,
       companyDetails: tenantType === 'Company' ? getVal('companyDetails') : null,
       street: tenantType === 'Company' ? getVal('street') : null,
@@ -265,12 +268,13 @@ export const Tenants = () => {
       resetForm();
     } catch (e) {
       console.error(e);
-      if (e.response && e.response.data && e.response.data.errors) {
-        setErrors(e.response.data.errors);
-        // Optional: Alert that there are validation errors
-        // alert("Please correct the highlighted errors.");
+      const serverError = e.response?.data?.errors;
+      const serverMessage = e.response?.data?.message;
+
+      if (serverError && Object.keys(serverError).length > 0) {
+        setErrors(serverError);
       } else {
-        alert(e.response?.data?.message || (editingTenant ? 'Failed to update tenant' : 'Failed to create tenant'));
+        alert(serverMessage || (editingTenant ? 'Failed to update tenant' : 'Failed to create tenant'));
       }
     } finally {
       setSaving(false);
@@ -476,15 +480,7 @@ export const Tenants = () => {
                     >
                       <Pencil size={16} />
                     </button>
-                    {!tenant.hasPortalAccess && (
-                      <button
-                        onClick={() => handleSendInvite(tenant)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                        title="Send Invite"
-                      >
-                        <Mail size={16} />
-                      </button>
-                    )}
+
                     <button
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
                       onClick={() => deleteTenant(tenant.id)}
@@ -653,7 +649,7 @@ export const Tenants = () => {
                           >
                             <option value="">Choose a billable tenant...</option>
                             {billableTenants.map(t => (
-                              <option key={t.id} value={t.id}>{t.name} ({t.type})</option>
+                              <option key={t.id} value={t.id}>{t.name} ({t.type === 'COMPANY' || t.type === 'Company' ? 'Company' : t.type === 'RESIDENT' || t.type === 'Resident' ? 'Resident' : 'Individual'})</option>
                             ))}
                           </select>
                           {errors.parentId && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.parentId}</p>}
@@ -838,6 +834,38 @@ const TenantDetail = ({ tenant, onBack }) => {
   const [showRentModal, setShowRentModal] = useState(false);
   const [editingLeaseRent, setEditingLeaseRent] = useState(null);
   const [rentInput, setRentInput] = useState('');
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    let url = null;
+    const loadPreview = async () => {
+      if (!viewingDoc) {
+        setPreviewUrl(null);
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+        const response = await api.get(`/api/admin/documents/${viewingDoc.id}/download`, {
+          responseType: 'blob'
+        });
+        url = URL.createObjectURL(response.data);
+        setPreviewUrl(url);
+      } catch (err) {
+        console.error("Failed to load preview", err);
+      } finally {
+        setPreviewLoading(false);
+      }
+    };
+
+    loadPreview();
+
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [viewingDoc]);
+
 
   const deleteDoc = (id) => {
     if (confirm('Are you sure you want to delete this document?')) {
@@ -1811,20 +1839,32 @@ const TenantDetail = ({ tenant, onBack }) => {
                   </div>
                 </div>
 
-                <div className="flex-1 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative min-h-[500px]">
-                  {viewingDoc.name.toLowerCase().endsWith('.pdf') ? (
-                    <iframe
-                      src={`https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf#toolbar=0`}
-                      className="w-full h-full border-none"
-                      title="PDF Preview"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center p-8">
-                      <img
-                        src={`https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=1000`}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                        alt="Document Preview"
+                <div className="flex-1 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative min-h-[500px] flex flex-col">
+                  {previewLoading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-400">
+                      <div className="w-12 h-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+                      <p className="font-bold uppercase tracking-widest text-[10px]">Loading preview...</p>
+                    </div>
+                  ) : previewUrl ? (
+                    viewingDoc.name.toLowerCase().endsWith('.pdf') ? (
+                      <iframe
+                        src={`${previewUrl}#toolbar=0`}
+                        className="w-full h-full border-none flex-1"
+                        title="PDF Preview"
                       />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center p-8 flex-1">
+                        <img
+                          src={previewUrl}
+                          className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                          alt="Document Preview"
+                        />
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-400">
+                      <AlertCircle size={48} className="opacity-20" />
+                      <p className="font-bold uppercase tracking-widest text-[10px]">Failed to load preview</p>
                     </div>
                   )}
                 </div>

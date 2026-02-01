@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { Button } from '../components/Button';
-import { Search, Eye, Filter, CheckCircle, Clock, AlertTriangle, X, Plus, User, Building, Home, ChevronDown } from 'lucide-react';
+import { Search, Eye, Filter, CheckCircle, Clock, AlertTriangle, X, Plus, User, Building, Home, ChevronDown, Trash2, Edit2 } from 'lucide-react';
 import clsx from 'clsx';
 import api from '../api/client';
 
@@ -25,6 +25,7 @@ export const Tickets = () => {
     const [search, setSearch] = useState('');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingTicket, setEditingTicket] = useState(null);
     const [viewingTenantDetails, setViewingTenantDetails] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
     const [attachments, setAttachments] = useState({});
@@ -84,7 +85,19 @@ export const Tickets = () => {
         }
     };
 
-    const handleAddTicket = async (e) => {
+    const handleDeleteTicket = async (dbId) => {
+        if (!window.confirm('Are you sure you want to delete this ticket?')) return;
+        try {
+            await api.delete(`/api/admin/tickets/${dbId}`);
+            setTickets(tickets.filter(t => t.dbId !== dbId));
+            setSuccessMessage('Ticket Deleted Successfully!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (e) {
+            alert('Failed to delete ticket');
+        }
+    };
+
+    const handleSaveTicket = async (e) => {
         e.preventDefault();
         const form = e.target;
         const tenantId = form.tenantId.value;
@@ -93,35 +106,51 @@ export const Tickets = () => {
         try {
             const formData = new FormData();
             formData.append('propertyId', selectedBuildingId);
-            formData.append('unitId', tenantObj?.unitId);
+            formData.append('unitId', tenantObj?.unitId || editingTicket?.unitId);
             formData.append('tenantId', tenantId);
             formData.append('subject', form.subject.value);
             formData.append('description', form.description.value);
             formData.append('priority', form.priority.value);
 
-            // Handle Attachments
-            if (form.images.files.length > 0) {
-                Array.from(form.images.files).forEach(file => {
-                    formData.append('images', file);
+            if (editingTicket) {
+                // For editing, we use a regular JSON put if no new files, but controller might expect form-data
+                // Simpler to stay consistent with form-data if we want file support, but for text only JSON is easier.
+                // However, the current createTicket uses multer.
+
+                await api.put(`/api/admin/tickets/${editingTicket.dbId}`, {
+                    tenantId: parseInt(tenantId),
+                    propertyId: parseInt(selectedBuildingId),
+                    unitId: tenantObj?.unitId,
+                    subject: form.subject.value,
+                    description: form.description.value,
+                    priority: form.priority.value,
+                });
+            } else {
+                // Handle Attachments only for new tickets for now (simple)
+                if (form.images.files.length > 0) {
+                    Array.from(form.images.files).forEach(file => {
+                        formData.append('images', file);
+                    });
+                }
+
+                if (form.video.files.length > 0) {
+                    formData.append('video', form.video.files[0]);
+                }
+
+                await api.post('/api/admin/tickets', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
                 });
             }
 
-            if (form.video.files.length > 0) {
-                formData.append('video', form.video.files[0]);
-            }
-
-            await api.post('/api/admin/tickets', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
             fetchTickets();
             setShowAddModal(false);
+            setEditingTicket(null);
             setSelectedBuildingId('');
-            setSuccessMessage('Ticket Created Successfully!');
+            setSuccessMessage(editingTicket ? 'Ticket Updated Successfully!' : 'Ticket Created Successfully!');
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (e) {
-            console.error('Error creating ticket:', e);
-            alert('Failed to create ticket');
+            console.error('Error saving ticket:', e);
+            alert('Failed to save ticket');
         }
     };
 
@@ -202,12 +231,31 @@ export const Tickets = () => {
                                     {ticket.status}
                                 </span>
 
-                                <span className="flex justify-center">
+                                <span className="flex justify-center gap-1">
                                     <button
                                         onClick={() => setSelectedTicket(ticket)}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                        title="View Details"
                                     >
                                         <Eye size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setEditingTicket(ticket);
+                                            setSelectedBuildingId(ticket.propertyId?.toString() || '');
+                                            setShowAddModal(true);
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                                        title="Edit Ticket"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteTicket(ticket.dbId)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                                        title="Delete Ticket"
+                                    >
+                                        <Trash2 size={16} />
                                     </button>
                                 </span>
                             </div>
@@ -216,8 +264,8 @@ export const Tickets = () => {
                 </section>
 
                 {selectedTicket && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200 p-4">
+                        <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
                                     <h3 className="text-2xl font-bold text-slate-800">{selectedTicket.id}</h3>
@@ -330,11 +378,13 @@ export const Tickets = () => {
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] animate-in fade-in duration-200">
                         <form
                             className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto"
-                            onSubmit={handleAddTicket}
+                            onSubmit={handleSaveTicket}
                         >
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-2xl font-bold text-slate-800">New Maintenance Ticket</h3>
-                                <button type="button" onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <h3 className="text-2xl font-bold text-slate-800">
+                                    {editingTicket ? 'Edit Ticket' : 'New Maintenance Ticket'}
+                                </h3>
+                                <button type="button" onClick={() => { setShowAddModal(false); setEditingTicket(null); }} className="text-slate-400 hover:text-slate-600">
                                     <X size={24} />
                                 </button>
                             </div>
@@ -352,7 +402,7 @@ export const Tickets = () => {
                                         >
                                             <option value="">Select Building</option>
                                             {buildings.map(b => (
-                                                <option key={b.id} value={b.id}>{b.name}{b.civicNumber ? ` - ${b.civicNumber}` : ''}</option>
+                                                <option key={b.id} value={b.id.toString()}>{b.name}{b.civicNumber ? ` - ${b.civicNumber}` : ''}</option>
                                             ))}
                                         </select>
                                         <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -366,6 +416,7 @@ export const Tickets = () => {
                                         <select
                                             name="tenantId"
                                             required
+                                            defaultValue={editingTicket?.tenantId}
                                             disabled={!selectedBuildingId}
                                             className="w-full pl-12 pr-10 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 bg-white appearance-none text-slate-800 font-medium disabled:opacity-50"
                                         >
@@ -383,6 +434,7 @@ export const Tickets = () => {
                                     <input
                                         name="subject"
                                         required
+                                        defaultValue={editingTicket?.subject}
                                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500"
                                         placeholder="e.g. Toilet leaking"
                                     />
@@ -392,6 +444,7 @@ export const Tickets = () => {
                                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Description</label>
                                     <textarea
                                         name="description"
+                                        defaultValue={editingTicket?.desc}
                                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 h-24 resize-none"
                                         placeholder="Describe the issue in detail..."
                                     ></textarea>
@@ -401,6 +454,7 @@ export const Tickets = () => {
                                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Priority</label>
                                     <select
                                         name="priority"
+                                        defaultValue={editingTicket?.priority || 'Low'}
                                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 bg-white"
                                     >
                                         <option value="Low">Low</option>
@@ -433,8 +487,8 @@ export const Tickets = () => {
                             </div>
 
                             <div className="flex gap-3 mt-8">
-                                <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                                <Button type="submit" variant="primary" className="flex-1">Save Ticket</Button>
+                                <Button type="button" variant="secondary" className="flex-1" onClick={() => { setShowAddModal(false); setEditingTicket(null); }}>Cancel</Button>
+                                <Button type="submit" variant="primary" className="flex-1">{editingTicket ? 'Update Ticket' : 'Save Ticket'}</Button>
                             </div>
                         </form>
                     </div>
