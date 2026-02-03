@@ -119,19 +119,7 @@ export const LeaseForm = () => {
 
       const res = await api.post('/api/admin/leases', payload);
 
-      let msg = 'Lease created successfully.';
-      if (res.data.notifications) {
-        const { status, sms, email, message } = res.data.notifications;
-        if (status === 'Sent') {
-          msg += `\n\nCredentials sent via: ${sms ? 'SMS ' : ''}${email ? 'Email' : ''}`;
-        } else if (status === 'Skipped') {
-          msg += `\n\nOnboarding: ${message}`;
-        } else if (status === 'Failed') {
-          msg += '\n\nFailed to send credentials (check SMS/Email settings)';
-        }
-      }
-
-      alert(msg);
+      alert('Lease created successfully.');
       navigate('/leases');
     } catch (error) {
       console.error('Failed to create lease', error);
@@ -188,8 +176,9 @@ export const LeaseForm = () => {
               >
                 <option value="">Select Unit</option>
                 {units.map(u => (
+
                   <option key={u.id} value={u.id}>
-                    {u.unitIdentifier || u.unit_identifier || u.unitNumber || u.name}
+                    {u.unitNumber || u.name}
                   </option>
                 ))}
               </select>

@@ -37,7 +37,7 @@ export const Properties = () => {
             </div>
 
             <Table
-                headers={['Property Name', 'Units', 'Occupancy', 'Status', 'Actions']}
+                headers={['Property Name', 'Owner(s)', 'Units', 'Occupancy', 'Status', 'Actions']}
                 data={properties}
                 renderRow={(property) => (
                     <>
@@ -54,6 +54,19 @@ export const Properties = () => {
                                         <div className="text-slate-500 text-xs mt-0.5">{property.address}</div>
                                     </div>
                                 </div>
+                            </div>
+                        </td>
+                        <td className="pr-4">
+                            <div className="flex flex-wrap gap-1">
+                                {property.ownerNames ? (
+                                    property.ownerNames.split(', ').map((owner, oIdx) => (
+                                        <span key={oIdx} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[10px] font-bold border border-indigo-100 whitespace-nowrap">
+                                            {owner}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-slate-400 text-xs italic">No Owner</span>
+                                )}
                             </div>
                         </td>
                         <td className="text-slate-700">{property.units} Units</td>

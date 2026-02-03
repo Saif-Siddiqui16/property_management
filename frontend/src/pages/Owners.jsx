@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { Button } from '../components/Button';
-import { Plus, Search, User, Eye, Trash2, Building2, Pencil } from 'lucide-react';
+import { Plus, Search, User, Eye, Trash2, Pencil, Calendar, AlertCircle, Building, Building2, UserPlus, Mail, Smartphone, Send, CheckCircle } from 'lucide-react';
 import api from '../api/client';
 
 const initialOwners = [
@@ -31,6 +31,10 @@ export const Owners = () => {
     const [owners, setOwners] = useState([]);
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [invitingOwner, setInvitingOwner] = useState(null);
+    const [inviteMethods, setInviteMethods] = useState({ email: true, sms: true });
+    const [isSendingInvite, setIsSendingInvite] = useState(false);
     const [viewingOwner, setViewingOwner] = useState(null);
     const [editingOwner, setEditingOwner] = useState(null);
 
@@ -88,11 +92,10 @@ export const Owners = () => {
         const payload = {
             firstName: form.firstName.value,
             lastName: form.lastName.value,
-            name: `${form.firstName.value} ${form.lastName.value}`,
+            name: `${form.firstName.value} ${form.lastName.value}`.trim(),
             email: form.email.value,
             phone: form.phone.value,
             companyName: form.companyName?.value || '',
-            isPrimary: form.isPrimary?.checked || false,
             propertyIds: selectedProperties.map(p => p.id),
         };
 
@@ -114,6 +117,46 @@ export const Owners = () => {
         }
     };
 
+    const handleSendInvite = (owner) => {
+        setInvitingOwner(owner);
+        setShowInviteModal(true);
+    };
+
+    const processInvite = async () => {
+        if (!inviteMethods.email && !inviteMethods.sms) {
+            alert('Please select at least one delivery method');
+            return;
+        }
+
+        setIsSendingInvite(true);
+        try {
+            const methods = [];
+            if (inviteMethods.email) methods.push('email');
+            if (inviteMethods.sms) methods.push('sms');
+
+            // Using the same endpoint as tenants if it's generic, or check if we need a specific owner one
+            // Based on admin.controller.js audits, we might need to add this endpoint or use a generic one.
+            // For now, I'll assume /api/admin/owners/${invitingOwner.id}/send-invite exists or I will create it.
+            const res = await api.post(`/api/admin/owners/${invitingOwner.id}/send-invite`, { methods });
+
+            let msg = 'Invitations processed successfully.';
+            if (res.data.data?.results) {
+                const { email, sms } = res.data.data.results;
+                if (email.attempted) msg += `\nEmail: ${email.success ? 'Sent' : 'Failed (' + (email.error || 'Unknown error') + ')'}`;
+                if (sms.attempted) msg += `\nSMS: ${sms.success ? 'Sent' : 'Failed (' + (sms.error || 'Unknown error') + ')'}`;
+            }
+
+            alert(msg);
+            setShowInviteModal(false);
+            setInvitingOwner(null);
+        } catch (e) {
+            console.error(e);
+            alert(e.response?.data?.message || 'Failed to send invite');
+        } finally {
+            setIsSendingInvite(false);
+        }
+    };
+
     const deleteOwner = async (id) => {
         if (!window.confirm('Are you sure? This will delete the login but preserve property data.')) return;
         try {
@@ -128,7 +171,8 @@ export const Owners = () => {
     const handleEditOwner = async (owner) => {
         const props = await fetchAvailableProperties(owner.id);
         setEditingOwner(owner);
-        const currentProps = props.filter(p => Number(p.ownerId) === Number(owner.id));
+        // Filter properties where this owner is one of the owners
+        const currentProps = props.filter(p => p.ownerIds?.includes(owner.id));
         setSelectedProperties(currentProps);
         setShowModal(true);
     };
@@ -179,12 +223,11 @@ export const Owners = () => {
                                 className="grid grid-cols-[1.2fr_1.2fr_1.2fr_1.2fr_0.6fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200"
                             >
                                 <span className="flex items-center gap-3 font-medium text-slate-700">
-                                    <div className={`min-w-[32px] w-8 h-8 rounded-full flex items-center justify-center ${owner.isPrimaryContact ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    <div className="min-w-[32px] w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-500">
                                         <User size={16} />
                                     </div>
                                     <span className="truncate flex flex-col">
                                         {owner.name}
-                                        {owner.isPrimaryContact && <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-tight">Primary</span>}
                                     </span>
                                 </span>
 
@@ -204,6 +247,13 @@ export const Owners = () => {
                                         className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                                     >
                                         <Eye size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleSendInvite(owner)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
+                                        title="Send Invite"
+                                    >
+                                        <Send size={16} />
                                     </button>
                                     <button
                                         onClick={() => handleEditOwner(owner)}
@@ -295,25 +345,18 @@ export const Owners = () => {
 
                                         <div className="flex flex-col gap-2">
                                             <label className="text-sm font-medium text-slate-600">Phone</label>
-                                            <input
-                                                name="phone"
-                                                type="tel"
-                                                defaultValue={editingOwner?.phone || '+1'}
-                                                placeholder="+1 (555) 000-0000"
-                                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium"
-                                            />
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium select-none pointer-events-none">+1</span>
+                                                <input
+                                                    name="phone"
+                                                    type="tel"
+                                                    defaultValue={editingOwner?.phone?.replace(/^\+1|^\+/, '').trim() || ''}
+                                                    placeholder="(555) 000-0000"
+                                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium"
+                                                />
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                            <input
-                                                type="checkbox"
-                                                name="isPrimary"
-                                                id="isPrimary"
-                                                defaultChecked={editingOwner?.isPrimaryContact}
-                                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="isPrimary" className="text-sm font-semibold text-slate-700 cursor-pointer">Set as Primary Contact for this Company</label>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -374,6 +417,79 @@ export const Owners = () => {
                                 <Button type="submit" variant="primary">{editingOwner ? 'Sync Portfolio' : 'Create Access'}</Button>
                             </div>
                         </form>
+                    </div>
+                )}
+
+                {/* INVITE MODAL */}
+                {showInviteModal && invitingOwner && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] animate-in fade-in duration-300">
+                        <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-400 overflow-hidden flex flex-col">
+                            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800 tracking-tight">Send Invite</h3>
+                                    <p className="text-slate-500 font-medium text-xs mt-1">Select delivery methods for {invitingOwner.name}</p>
+                                </div>
+                                <button
+                                    onClick={() => { setShowInviteModal(false); setInvitingOwner(null); }}
+                                    className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
+                                >
+                                    <Plus className="rotate-45" size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-8 space-y-4">
+                                <div className="space-y-3">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">DELIVERY METHODS</label>
+
+                                    <button
+                                        onClick={() => setInviteMethods(prev => ({ ...prev, email: !prev.email }))}
+                                        className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${inviteMethods.email ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${inviteMethods.email ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                                            <Mail size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className={`font-bold text-sm ${inviteMethods.email ? 'text-indigo-900' : 'text-slate-700'}`}>Email Invitation</p>
+                                            <p className="text-[10px] text-slate-500 font-medium">Send credentials to {invitingOwner.email || 'Email missing'}</p>
+                                        </div>
+                                        {inviteMethods.email && <CheckCircle size={20} className="ml-auto text-indigo-600" />}
+                                    </button>
+
+                                    <button
+                                        onClick={() => setInviteMethods(prev => ({ ...prev, sms: !prev.sms }))}
+                                        className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${inviteMethods.sms ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${inviteMethods.sms ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                                            <Smartphone size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className={`font-bold text-sm ${inviteMethods.sms ? 'text-indigo-900' : 'text-slate-700'}`}>SMS Invitation</p>
+                                            <p className="text-[10px] text-slate-500 font-medium">Send credentials to {invitingOwner.phone || 'Phone missing'}</p>
+                                        </div>
+                                        {inviteMethods.sms && <CheckCircle size={20} className="ml-auto text-indigo-600" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+                                <Button
+                                    variant="secondary"
+                                    className="flex-1"
+                                    onClick={() => { setShowInviteModal(false); setInvitingOwner(null); }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="flex-1 shadow-lg shadow-indigo-100"
+                                    onClick={processInvite}
+                                    isLoading={isSendingInvite}
+                                    disabled={!inviteMethods.email && !inviteMethods.sms}
+                                >
+                                    Confirm & Send
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -441,7 +557,7 @@ export const Owners = () => {
                     )
                 }
 
-            </div >
-        </MainLayout >
+            </div>
+        </MainLayout>
     );
 };

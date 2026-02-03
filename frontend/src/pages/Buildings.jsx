@@ -19,6 +19,7 @@ export const Buildings = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentBuilding, setCurrentBuilding] = useState(null);
   const [owners, setOwners] = useState([]);
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState([]);
 
   // Fetch buildings and owners from API
   useEffect(() => {
@@ -87,7 +88,8 @@ export const Buildings = () => {
       street: form.street.value,
       city: form.city.value,
       province: form.province.value,
-      postalCode: form.postalCode.value
+      postalCode: form.postalCode.value,
+      ownerIds: [] // Assigned later via edit
     };
 
     try {
@@ -125,6 +127,7 @@ export const Buildings = () => {
   // Edit building
   const editBuilding = (building) => {
     setCurrentBuilding(building);
+    setSelectedOwnerIds(building.ownerIds || []);
     setShowEditModal(true);
   };
 
@@ -140,7 +143,8 @@ export const Buildings = () => {
       street: form.street.value,
       city: form.city.value,
       province: form.province.value,
-      postalCode: form.postalCode.value
+      postalCode: form.postalCode.value,
+      ownerIds: selectedOwnerIds
     };
 
     try {
@@ -208,7 +212,10 @@ export const Buildings = () => {
               />
             </div>
           </div>
-          <Button variant="primary" onClick={() => setShowModal(true)} className="whitespace-nowrap">
+          <Button variant="primary" onClick={() => {
+            setSelectedOwnerIds([]);
+            setShowModal(true);
+          }} className="whitespace-nowrap">
             <Plus size={18} />
             Add Building
           </Button>
@@ -217,15 +224,15 @@ export const Buildings = () => {
         {/* Table Card */}
         <Card className="bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-500 flex flex-col h-full">
           <div className="w-full overflow-x-auto flex-1">
-            <div className="hidden md:grid grid-cols-9 min-w-[1200px] bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b-2 border-slate-200">
+            <div className="hidden md:grid grid-cols-12 min-w-[1300px] bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b-2 border-slate-200">
               <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-2">Building Details</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Street</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">City</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Province</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Postal Code</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Total Units</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Status</div>
-              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide">Actions</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-2">Owner(s)</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-2">Street</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-2">Location</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-1">Postal Code</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-1 text-center">Units</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-1 text-center">Status</div>
+              <div className="font-semibold text-slate-600 text-sm uppercase tracking-wide col-span-1 text-right">Actions</div>
             </div>
 
             <div className="bg-white">
@@ -235,65 +242,74 @@ export const Buildings = () => {
                 filteredBuildings.map((building, index) => (
                   <div
                     key={building.id}
-                    className="grid grid-cols-1 md:grid-cols-9 min-w-[1200px] px-6 py-4 border-b border-slate-100 transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:scale-[1.002] hover:shadow-md items-center gap-4 md:gap-0"
+                    className="grid grid-cols-1 md:grid-cols-12 min-w-[1300px] px-6 py-4 border-b border-slate-100 transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:scale-[1.002] hover:shadow-md items-center gap-4 md:gap-0"
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <div className="flex items-center gap-2 col-span-2">
                       <div className="w-10 h-10 bg-gradient-to-br from-[#667eea] to-[#764ba2] rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm">
                         <Building2 size={20} />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 text-sm">{building.name} - {building.civicNumber}</span>
-                        <span className="text-xs text-[#667eea] font-medium">B-{building.id}</span>
+                      <div className="flex flex-col truncate">
+                        <span className="font-bold text-slate-800 text-sm truncate">{building.name}</span>
+                        <span className="text-[10px] text-[#667eea] font-black uppercase tracking-tighter">B-{building.id}</span>
                       </div>
                     </div>
-                    <div className="text-slate-600 text-sm truncate" title={building.street}>
+                    <div className="col-span-2 flex flex-wrap gap-1 pr-4">
+                      {building.ownerNames ? (
+                        building.ownerNames.split(', ').map((owner, oIdx) => (
+                          <span key={oIdx} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[10px] font-bold border border-indigo-100 whitespace-nowrap">
+                            {owner}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 text-xs italic">No Owner</span>
+                      )}
+                    </div>
+                    <div className="col-span-2 text-slate-600 text-sm truncate pr-4" title={building.street}>
                       {building.street || '-'}
                     </div>
-                    <div className="text-slate-600 text-sm">
-                      {building.city || '-'}
+                    <div className="col-span-2 flex flex-col justify-center gap-0.5">
+                      <span className="font-bold text-slate-700 text-sm leading-tight">{building.city || '-'}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{building.province || '-'}</span>
                     </div>
-                    <div className="text-slate-600 text-sm">
-                      {building.province || '-'}
-                    </div>
-                    <div className="text-slate-600 text-sm">
+                    <div className="col-span-1 text-slate-600 text-xs font-medium">
                       {building.postalCode || '-'}
                     </div>
-                    <div className="flex justify-between md:block md:w-auto w-full">
-                      <span className="text-[1rem] font-semibold text-[#667eea]">{building.units}</span>
+                    <div className="col-span-1 flex justify-center">
+                      <span className="text-[1rem] font-black text-[#667eea]">{building.units}</span>
                     </div>
-                    <div className="flex justify-between md:block md:w-auto w-full">
+                    <div className="col-span-1 flex justify-center">
                       <span
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit ${building.status === 'Active'
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight ${building.status === 'Active'
                           ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-red-100 text-red-800'
                           }`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${building.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                        <span className={`w-1 h-1 rounded-full ${building.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                         {building.status}
                       </span>
                     </div>
-                    <div className="flex gap-2 justify-end md:justify-start">
+                    <div className="col-span-1 flex gap-2 justify-end">
                       <button
-                        className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-sky-50 text-sky-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(2,132,199,0.2)] hover:scale-110 group relative"
+                        className="w-7 h-7 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-sky-50 text-sky-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(2,132,199,0.2)] hover:scale-110"
                         title="View Details"
                         onClick={() => viewBuilding(building)}
                       >
-                        <Eye size={14} />
+                        <Eye size={12} />
                       </button>
                       <button
-                        className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-emerald-50 text-emerald-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(22,163,74,0.2)] hover:scale-110 group relative"
+                        className="w-7 h-7 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-emerald-50 text-emerald-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(22,163,74,0.2)] hover:scale-110"
                         title="Edit Building"
                         onClick={() => editBuilding(building)}
                       >
-                        <Pencil size={14} />
+                        <Pencil size={12} />
                       </button>
                       <button
-                        className="w-8 h-8 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-red-50 text-red-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(220,38,38,0.2)] hover:scale-110 group relative"
+                        className="w-7 h-7 border-none rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 bg-red-50 text-red-600 hover:-translate-y-1 hover:shadow-[0_5px_15px_rgba(220,38,38,0.2)] hover:scale-110"
                         title="Delete Building"
                         onClick={() => deleteBuilding(building.id)}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
@@ -499,6 +515,10 @@ export const Buildings = () => {
                   <span className="flex-1 font-semibold text-slate-800">{currentBuilding.name}</span>
                 </div>
                 <div className="flex items-center pb-3 border-b border-slate-100">
+                  <span className="font-medium w-[140px] text-slate-500">Owner(s):</span>
+                  <span className="flex-1 font-semibold text-[#667eea]">{currentBuilding.ownerNames || 'No Owner'}</span>
+                </div>
+                <div className="flex items-center pb-3 border-b border-slate-100">
                   <span className="font-medium w-[140px] text-slate-500">Civic Number:</span>
                   <span className="flex-1 font-semibold text-slate-800">{currentBuilding.civicNumber || '-'}</span>
                 </div>
@@ -657,6 +677,30 @@ export const Buildings = () => {
                   placeholder="e.g., J8E 2G5"
                   className="w-full p-3 border-2 border-slate-200 rounded-xl text-base transition-all outline-none focus:border-[#667eea] focus:ring-4 focus:ring-[#667eea]/10"
                 />
+              </div>
+
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-slate-600">Assign Owner(s)</label>
+                <div className="flex flex-wrap gap-2 p-3 border-2 border-slate-200 rounded-xl bg-slate-50/30 max-h-[120px] overflow-y-auto">
+                  {owners.map(owner => (
+                    <label key={owner.id} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg cursor-pointer hover:bg-slate-100 transition-all border border-slate-200 shadow-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedOwnerIds.includes(owner.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedOwnerIds([...selectedOwnerIds, owner.id]);
+                          } else {
+                            setSelectedOwnerIds(selectedOwnerIds.filter(id => id !== owner.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded text-[#667eea] focus:ring-[#667eea]"
+                      />
+                      <span className="text-sm font-medium text-slate-700">{owner.name}</span>
+                    </label>
+                  ))}
+                  {owners.length === 0 && <span className="text-slate-400 text-xs italic p-1">No owners found</span>}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">

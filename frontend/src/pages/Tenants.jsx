@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 import { Button } from '../components/Button';
-import { Plus, Search, User, Eye, Trash2, FileText, Shield, Download, Upload, ArrowLeft, Calendar, FileCheck, AlertCircle, Pencil, Mail } from 'lucide-react';
+import { Plus, Search, User, Eye, Trash2, FileText, Shield, Download, Upload, ArrowLeft, Calendar, FileCheck, AlertCircle, Pencil, Mail, Smartphone, Send, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
 import api from '../api/client';
 
@@ -21,6 +21,10 @@ export const Tenants = () => {
   const [errorNotFound, setErrorNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitingTenant, setInvitingTenant] = useState(null);
+  const [inviteMethods, setInviteMethods] = useState({ email: true, sms: true });
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   // Lists for Dropdowns
   const [properties, setProperties] = useState([]);
@@ -79,8 +83,15 @@ export const Tenants = () => {
           const res = await api.get(`/api/admin/units?building_id=${selectedPropertyId}&limit=1000`);
           const allUnits = res.data?.data || res.data || [];
 
-          // Filter out units that are "Fully Booked"
-          const units = allUnits.filter(u => u.status !== 'Fully Booked');
+          // Filter units:
+          // 1. If Individual/Company tenant: only show Vacant
+          // 2. If Resident: show units with Active company leases + Vacant
+          const units = allUnits.filter(u => {
+            if (tenantType === 'Resident' || tenantType === 'RESIDENT') {
+              return u.status !== 'Fully Booked' || u.activeLeaseCount > 0;
+            }
+            return u.status !== 'Fully Booked';
+          });
 
           setAvailableUnits(units);
 
@@ -318,13 +329,40 @@ export const Tenants = () => {
     setShowModal(true);
   };
 
-  const handleSendInvite = async (tenant) => {
+  const handleSendInvite = (tenant) => {
+    setInvitingTenant(tenant);
+    setShowInviteModal(true);
+  };
+
+  const processInvite = async () => {
+    if (!inviteMethods.email && !inviteMethods.sms) {
+      alert('Please select at least one delivery method');
+      return;
+    }
+
+    setIsSendingInvite(true);
     try {
-      const res = await api.post(`/api/admin/tenants/${tenant.id}/send-invite`);
-      alert(`Invite link generated: ${res.data.inviteLink}\n(In production, this would be sent via email)`);
+      const methods = [];
+      if (inviteMethods.email) methods.push('email');
+      if (inviteMethods.sms) methods.push('sms');
+
+      const res = await api.post(`/api/admin/tenants/${invitingTenant.id}/send-invite`, { methods });
+
+      let msg = 'Invitations processed successfully.';
+      if (res.data.data?.results) {
+        const { email, sms } = res.data.data.results;
+        if (email.attempted) msg += `\nEmail: ${email.success ? 'Sent' : 'Failed (' + (email.error || 'Unknown error') + ')'}`;
+        if (sms.attempted) msg += `\nSMS: ${sms.success ? 'Sent' : 'Failed (' + (sms.error || 'Unknown error') + ')'}`;
+      }
+
+      alert(msg);
+      setShowInviteModal(false);
+      setInvitingTenant(null);
     } catch (e) {
       console.error(e);
-      alert('Failed to send invite');
+      alert(e.response?.data?.message || 'Failed to send invite');
+    } finally {
+      setIsSendingInvite(false);
     }
   };
 
@@ -356,402 +394,501 @@ export const Tenants = () => {
     );
   }
 
-  if (viewingTenant) {
-    return <TenantDetail tenant={viewingTenant} onBack={handleBack} />;
-  }
-
   return (
-    <MainLayout title="Tenants">
-      <div className="flex flex-col gap-6">
+    <>
+      {viewingTenant ? (
+        <TenantDetail tenant={viewingTenant} onBack={handleBack} onSendInvite={handleSendInvite} onEdit={() => handleEditTenant(viewingTenant)} />
+      ) : (
+        <MainLayout title="Tenants">
+          <div className="flex flex-col gap-6">
 
-        {/* TOP BAR */}
-        <section className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.06)] gap-4">
-          <div className="flex items-center gap-3 bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all w-full md:w-auto md:min-w-[320px]">
-            <Search size={18} className="text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search tenants, email, building"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400 w-full text-sm font-medium"
-            />
-          </div>
-
-          <Button variant="primary" onClick={() => { setEditingTenant(null); setShowModal(true); }}>
-            <Plus size={18} />
-            Add Tenant
-          </Button>
-        </section>
-
-        {/* TABLE */}
-        <section className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] overflow-hidden">
-          <div className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.8fr] bg-slate-50 border-b border-slate-200 px-6 py-4">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tenant</span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Company Name</span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Property / Unit</span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Lease Status</span>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Actions</span>
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {filteredTenants.map((tenant, index) => {
-              const hasInsuranceIssue = tenant.insurance?.some(policy => {
-                const end = new Date(policy.endDate);
-                const now = new Date();
-                const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-                return end < now || diffDays <= 30;
-              });
-
-              return (
-                <div
-                  key={tenant.id}
-                  className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <span className="flex items-center gap-3 font-medium text-slate-700 overflow-hidden">
-                    <div className="min-w-[32px] w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-                      <User size={16} />
-                    </div>
-                    <button
-                      onClick={() => handleViewDetails(tenant)}
-                      className="hover:text-indigo-600 hover:underline transition-all text-left truncate"
-                    >
-                      {tenant.name}
-                    </button>
-                    {hasInsuranceIssue && (
-                      <div className="text-amber-500 min-w-[14px]" title="Insurance Expired or Expiring Soon">
-                        <AlertCircle size={14} />
-                      </div>
-                    )}
-                  </span>
-
-                  <span className="text-sm text-slate-600 truncate">{tenant.email}</span>
-
-                  <span className="w-fit">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.type === 'Company' || tenant.type === 'COMPANY'
-                      ? 'bg-purple-50 text-purple-700 border-purple-100'
-                      : tenant.type === 'Resident' || tenant.type === 'RESIDENT'
-                        ? 'bg-amber-50 text-amber-700 border-amber-100'
-                        : 'bg-blue-50 text-blue-700 border-blue-100'
-                      }`}>
-                      {tenant.type === 'COMPANY' || tenant.type === 'Company' ? 'Company' :
-                        tenant.type === 'RESIDENT' || tenant.type === 'Resident' ? 'Resident' :
-                          'Individual'}
-                    </span>
-                  </span>
-
-                  <span className="text-sm text-slate-600 truncate">
-                    {(tenant.type === 'COMPANY' || tenant.type === 'Company') ? (tenant.companyName || '-') : '-'}
-                  </span>
-
-                  <span className="text-sm text-slate-600">
-                    <div className="font-medium text-slate-800">{tenant.property}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{tenant.unit}</div>
-                  </span>
-
-                  <span className="w-fit">
-                    <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.leaseStatus === 'Active'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                      : tenant.leaseStatus === 'DRAFT'
-                        ? 'bg-amber-50 text-amber-700 border-amber-100'
-                        : 'bg-red-50 text-red-700 border-red-100'
-                      }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${tenant.leaseStatus === 'Active' ? 'bg-emerald-500' :
-                        tenant.leaseStatus === 'DRAFT' ? 'bg-amber-500' : 'bg-red-500'
-                        }`}></span>
-                      {tenant.leaseStatus === 'DRAFT' ? 'Draft' : tenant.leaseStatus}
-                    </span>
-                  </span>
-
-                  <span className="flex justify-center gap-1">
-                    <button
-                      onClick={() => handleViewDetails(tenant)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200"
-                      title="View Details"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleEditTenant(tenant)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                      title="Edit Tenant"
-                    >
-                      <Pencil size={16} />
-                    </button>
-
-                    <button
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-                      onClick={() => deleteTenant(tenant.id)}
-                      title="Delete Tenant"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ADD/EDIT TENANT MODAL */}
-        {showModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[32px] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-400 max-h-[90vh] overflow-hidden flex flex-col">
-              {/* MODAL HEADER */}
-              <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
-                <div>
-                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-                    {editingTenant ? 'Edit Profile' : formStep === 1 ? 'Select Tenant Type' :
-                      tenantType === 'Individual' ? 'Individual Tenant Details' :
-                        tenantType === 'Company' ? 'Company Tenant Details' :
-                          tenantType === 'Resident' ? 'Resident Tenant Detail' :
-                            'Tenant Details'}
-                  </h3>
-                  <p className="text-slate-500 font-medium text-sm mt-1">
-                    {editingTenant ? `Updating ${editingTenant.name}` : formStep === 1 ? 'Step 1 of 2: Classification' : 'Step 2 of 2: Information'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); setEditingTenant(null); resetForm(); }}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all duration-300"
-                >
-                  <Plus className="rotate-45" size={24} />
-                </button>
+            {/* TOP BAR */}
+            <section className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-[0_5px_15px_rgba(0,0,0,0.06)] gap-4">
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all w-full md:w-auto md:min-w-[320px]">
+                <Search size={18} className="text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search tenants, email, building"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400 w-full text-sm font-medium"
+                />
               </div>
 
-              {/* MODAL CONTENT */}
-              <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar">
-                {formStep === 1 && !editingTenant ? (
-                  /* STEP 1: TYPE SELECTION */
-                  <div className="grid grid-cols-1 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => { setTenantType('Individual'); setFormStep(2); }}
-                      className="group p-6 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/30 text-left transition-all duration-300 flex items-center gap-6"
-                    >
-                      <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                        <User size={32} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">Individual Tenant</h4>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Single legal leaseholder. Receives credentials via SMS.</p>
-                      </div>
-                    </button>
+              <Button variant="primary" onClick={() => { setEditingTenant(null); setShowModal(true); }}>
+                <Plus size={18} />
+                Add Tenant
+              </Button>
+            </section>
 
-                    <button
-                      type="button"
-                      onClick={() => { setTenantType('Company'); setFormStep(2); }}
-                      className="group p-6 rounded-2xl border-2 border-slate-100 hover:border-purple-500 hover:bg-purple-50/30 text-left transition-all duration-300 flex items-center gap-6"
-                    >
-                      <div className="w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                        <Shield size={32} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">Company Tenant</h4>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Corporate leaseholder with occupants. Billing via primary contact.</p>
-                      </div>
-                    </button>
+            {/* TABLE */}
+            <section className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] overflow-hidden">
+              <div className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.8fr] bg-slate-50 border-b border-slate-200 px-6 py-4">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tenant</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Company Name</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Property / Unit</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Lease Status</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Actions</span>
+              </div>
 
-                    <button
-                      type="button"
-                      onClick={() => { setTenantType('Resident'); setFormStep(2); }}
-                      className="group p-6 rounded-2xl border-2 border-slate-100 hover:border-amber-500 hover:bg-amber-50/30 text-left transition-all duration-300 flex items-center gap-6"
-                    >
-                      <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                        <FileText size={32} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">Resident (Occupant Only)</h4>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Physical occupant only. Non-billable. Linked to a billable tenant.</p>
-                      </div>
-                    </button>
-                  </div>
-                ) : (
-                  /* STEP 2: FORM FIELDS */
-                  <form onSubmit={handleSaveTenant} className="space-y-8">
-                    {/* Basic Info */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-indigo-600 mb-2">
-                        <User size={18} />
-                        <span className="text-xs font-black uppercase tracking-widest">Personal Identification</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">First Name</label>
-                          <input
-                            name="firstName"
-                            placeholder="John"
-                            defaultValue={editingTenant?.firstName || ''}
-                            required
-                            className={`px-5 py-3.5 rounded-2xl border ${errors.firstName ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
-                          />
-                          {errors.firstName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.firstName}</p>}
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Last Name</label>
-                          <input
-                            name="lastName"
-                            placeholder="Doe"
-                            defaultValue={editingTenant?.lastName || ''}
-                            required
-                            className={`px-5 py-3.5 rounded-2xl border ${errors.lastName ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
-                          />
-                          {errors.lastName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.lastName}</p>}
-                        </div>
-                      </div>
+              <div className="divide-y divide-slate-100">
+                {filteredTenants.map((tenant, index) => {
+                  const hasInsuranceIssue = tenant.insurance?.some(policy => {
+                    const end = new Date(policy.endDate);
+                    const now = new Date();
+                    const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+                    return end < now || diffDays <= 30;
+                  });
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Email Adddress</label>
-                          <input
-                            name="email"
-                            type="email"
-                            placeholder="john@example.com"
-                            defaultValue={editingTenant?.email || ''}
-                            required={tenantType !== 'Resident'}
-                            className={`px-5 py-3.5 rounded-2xl border ${errors.email ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
-                          />
-                          {errors.email && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.email}</p>}
+                  return (
+                    <div
+                      key={tenant.id}
+                      className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <span className="flex items-center gap-3 font-medium text-slate-700 overflow-hidden">
+                        <div className="min-w-[32px] w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                          <User size={16} />
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Mobile Number</label>
+                        <button
+                          onClick={() => handleViewDetails(tenant)}
+                          className="hover:text-indigo-600 hover:underline transition-all text-left truncate flex flex-col"
+                        >
+                          <span className="font-semibold">{tenant.firstName && tenant.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant.name}</span>
+                          {/*
+                          {(tenant.type === 'COMPANY' || tenant.type === 'Company') && (
+                            <span className="text-[10px] text-slate-400 font-medium">Contact Person</span>
+                          )}
+                          */}
+                        </button>
+                        {hasInsuranceIssue && (
+                          <div className="text-amber-500 min-w-[14px]" title="Insurance Expired or Expiring Soon">
+                            <AlertCircle size={14} />
+                          </div>
+                        )}
+                      </span>
+
+                      <span className="text-sm text-slate-600 truncate">{tenant.email}</span>
+
+                      <span className="w-fit">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.type === 'Company' || tenant.type === 'COMPANY'
+                          ? 'bg-purple-50 text-purple-700 border-purple-100'
+                          : tenant.type === 'Resident' || tenant.type === 'RESIDENT'
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : 'bg-blue-50 text-blue-700 border-blue-100'
+                          }`}>
+                          {tenant.type === 'COMPANY' || tenant.type === 'Company' ? 'Company' :
+                            tenant.type === 'RESIDENT' || tenant.type === 'Resident' ? 'Resident' :
+                              'Individual'}
+                        </span>
+                      </span>
+
+                      <span className="text-sm text-slate-600 truncate">
+                        {(tenant.type === 'COMPANY' || tenant.type === 'Company') ? (tenant.companyName || '-') : '-'}
+                      </span>
+
+                      <span className="text-sm text-slate-600">
+                        <div className="font-medium text-slate-800">{tenant.property}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{tenant.unit}</div>
+                      </span>
+
+                      <span className="w-fit">
+                        <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.leaseStatus === 'Active'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : tenant.leaseStatus === 'DRAFT'
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : 'bg-red-50 text-red-700 border-red-100'
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${tenant.leaseStatus === 'Active' ? 'bg-emerald-500' :
+                            tenant.leaseStatus === 'DRAFT' ? 'bg-amber-500' : 'bg-red-500'
+                            }`}></span>
+                          {tenant.leaseStatus === 'DRAFT' ? 'Draft' : tenant.leaseStatus}
+                        </span>
+                      </span>
+
+                      <span className="flex justify-center gap-1">
+                        <button
+                          onClick={() => handleViewDetails(tenant)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleEditTenant(tenant)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                          title="Edit Tenant"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => handleSendInvite(tenant)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
+                          title="Send Invite"
+                        >
+                          <Send size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteTenant(tenant.id)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                          title="Delete Tenant"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </MainLayout>
+      )}
+
+      {/* ADD/EDIT TENANT MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-400 max-h-[90vh] overflow-hidden flex flex-col">
+            {/* MODAL HEADER */}
+            <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight">
+                  {editingTenant ? 'Edit Profile' : formStep === 1 ? 'Select Tenant Type' :
+                    tenantType === 'Individual' ? 'Individual Tenant Details' :
+                      tenantType === 'Company' ? 'Company Tenant Details' :
+                        tenantType === 'Resident' ? 'Resident Tenant Detail' :
+                          'Tenant Details'}
+                </h3>
+                <p className="text-slate-500 font-medium text-sm mt-1">
+                  {editingTenant ? `Updating ${editingTenant.name}` : formStep === 1 ? 'Step 1 of 2: Classification' : 'Step 2 of 2: Information'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowModal(false); setEditingTenant(null); resetForm(); }}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all duration-300"
+              >
+                <Plus className="rotate-45" size={24} />
+              </button>
+            </div>
+
+            {/* MODAL CONTENT */}
+            <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar">
+              {formStep === 1 && !editingTenant ? (
+                /* STEP 1: TYPE SELECTION */
+                <div className="grid grid-cols-1 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => { setTenantType('Individual'); setFormStep(2); }}
+                    className="group p-6 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/30 text-left transition-all duration-300 flex items-center gap-6"
+                  >
+                    <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                      <User size={32} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-lg">Individual Tenant</h4>
+                      <p className="text-slate-500 text-sm font-medium mt-1">Single legal leaseholder. Receives credentials via SMS.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setTenantType('Company'); setFormStep(2); }}
+                    className="group p-6 rounded-2xl border-2 border-slate-100 hover:border-purple-500 hover:bg-purple-50/30 text-left transition-all duration-300 flex items-center gap-6"
+                  >
+                    <div className="w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                      <Shield size={32} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-lg">Company Tenant</h4>
+                      <p className="text-slate-500 text-sm font-medium mt-1">Corporate leaseholder with occupants. Billing via primary contact.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setTenantType('Resident'); setFormStep(2); }}
+                    className="group p-6 rounded-2xl border-2 border-slate-100 hover:border-amber-500 hover:bg-amber-50/30 text-left transition-all duration-300 flex items-center gap-6"
+                  >
+                    <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                      <User size={32} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-lg">Resident (Occupant Only)</h4>
+                      <p className="text-slate-500 text-sm font-medium mt-1">Physical occupant only. Non-billable. Linked to a billable tenant.</p>
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                /* STEP 2: FORM FIELDS */
+                <form onSubmit={handleSaveTenant} className="space-y-8">
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                      <User size={18} />
+                      <span className="text-xs font-black uppercase tracking-widest">Personal Identification</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">First Name</label>
+                        <input
+                          name="firstName"
+                          placeholder="John"
+                          defaultValue={editingTenant?.firstName || ''}
+                          required
+                          className={`px-5 py-3.5 rounded-2xl border ${errors.firstName ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
+                        />
+                        {errors.firstName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.firstName}</p>}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Last Name</label>
+                        <input
+                          name="lastName"
+                          placeholder="Doe"
+                          defaultValue={editingTenant?.lastName || ''}
+                          required
+                          className={`px-5 py-3.5 rounded-2xl border ${errors.lastName ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
+                        />
+                        {errors.lastName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.lastName}</p>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Email Adddress</label>
+                        <input
+                          name="email"
+                          type="email"
+                          placeholder="john@example.com"
+                          defaultValue={editingTenant?.email || ''}
+                          required={tenantType !== 'Resident'}
+                          className={`px-5 py-3.5 rounded-2xl border ${errors.email ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
+                        />
+                        {errors.email && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.email}</p>}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Mobile Number</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium select-none pointer-events-none">+1</span>
                           <input
                             name="phone"
                             type="tel"
-                            placeholder="(514) 123-4567"
-                            defaultValue={editingTenant?.phone || '+1 '}
+                            placeholder="(555) 123-4567"
+                            defaultValue={editingTenant?.phone?.replace(/^\+1|^\+/, '').trim() || ''}
                             required
-                            className={`px-5 py-3.5 rounded-2xl border ${errors.phone ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
+                            className={`pl-10 pr-5 py-3.5 w-full rounded-2xl border ${errors.phone ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/50'} outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800`}
                           />
-                          {errors.phone && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.phone}</p>}
-                          <p className="text-[10px] text-slate-500 font-medium ml-1 italic">Canadian/US format supported (e.g. 514-123-4567)</p>
+                        </div>
+                        {errors.phone && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.phone}</p>}
+                        <p className="text-[10px] text-slate-500 font-medium ml-1 italic">Canadian/US format supported (e.g. 514-123-4567)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Resident Linking */}
+                  {tenantType === 'Resident' && (
+                    <div className="p-6 bg-amber-50/50 rounded-[24px] border border-amber-100 space-y-4">
+                      <div className="flex items-center gap-2 text-amber-600 mb-2">
+                        <AlertCircle size={18} />
+                        <span className="text-xs font-black uppercase tracking-widest">Resident Linking</span>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Responsible Tenant (Billable)</label>
+                        <select
+                          value={selectedParentId}
+                          onChange={(e) => setSelectedParentId(e.target.value)}
+                          required={tenantType === 'Resident'}
+                          className={`px-5 py-3.5 rounded-2xl border ${errors.parentId ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-white'} outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all font-medium text-slate-800 appearance-none`}
+                        >
+                          <option value="">Choose a billable tenant...</option>
+                          {billableTenants.map(t => (
+                            <option key={t.id} value={t.id}>{t.name} ({t.type === 'COMPANY' || t.type === 'Company' ? 'Company' : t.type === 'RESIDENT' || t.type === 'Resident' ? 'Resident' : 'Individual'})</option>
+                          ))}
+                        </select>
+                        {errors.parentId && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.parentId}</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Company Details */}
+                  {tenantType === 'Company' && (
+                    <div className="p-6 bg-purple-50/30 rounded-[24px] border border-purple-100 space-y-4">
+                      <div className="flex items-center gap-2 text-purple-600 mb-2">
+                        <Shield size={18} />
+                        <span className="text-xs font-black uppercase tracking-widest">Company Information</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2 col-span-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Company legal Name</label>
+                          <input
+                            name="companyName"
+                            placeholder="LLC / Inc / Corp"
+                            defaultValue={editingTenant?.companyName || ''}
+                            required
+                            className={`px-5 py-3.5 rounded-2xl border ${errors.companyName ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-white'} outline-none focus:border-purple-500 transition-all font-medium`}
+                          />
+                          {errors.companyName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.companyName}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-2 col-span-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Street Address</label>
+                          <input
+                            name="street"
+                            placeholder="123 Corporate Way"
+                            defaultValue={editingTenant?.street || ''}
+                            required
+                            className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-purple-500 transition-all font-medium"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 col-span-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Address Line 2 (Optional)</label>
+                          <input
+                            name="street2"
+                            placeholder="Building B, Suite 100"
+                            defaultValue={editingTenant?.street2 || ''}
+                            className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-purple-500 transition-all font-medium"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">City</label>
+                          <input name="city" placeholder="Business City" defaultValue={editingTenant?.city || ''} required className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">State / Province</label>
+                          <input name="state" placeholder="State" defaultValue={editingTenant?.state || ''} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Postal Code</label>
+                          <input name="postalCode" placeholder="H4F 3G1" defaultValue={editingTenant?.postalCode || ''} required className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Country</label>
+                          <input name="country" placeholder="Canada" defaultValue={editingTenant?.country || ''} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
                         </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* Resident Linking */}
-                    {tenantType === 'Resident' && (
-                      <div className="p-6 bg-amber-50/50 rounded-[24px] border border-amber-100 space-y-4">
-                        <div className="flex items-center gap-2 text-amber-600 mb-2">
-                          <AlertCircle size={18} />
-                          <span className="text-xs font-black uppercase tracking-widest">Resident Linking</span>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Responsible Tenant (Billable)</label>
-                          <select
-                            value={selectedParentId}
-                            onChange={(e) => setSelectedParentId(e.target.value)}
-                            required={tenantType === 'Resident'}
-                            className={`px-5 py-3.5 rounded-2xl border ${errors.parentId ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-white'} outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all font-medium text-slate-800 appearance-none`}
-                          >
-                            <option value="">Choose a billable tenant...</option>
-                            {billableTenants.map(t => (
-                              <option key={t.id} value={t.id}>{t.name} ({t.type === 'COMPANY' || t.type === 'Company' ? 'Company' : t.type === 'RESIDENT' || t.type === 'Resident' ? 'Resident' : 'Individual'})</option>
-                            ))}
-                          </select>
-                          {errors.parentId && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.parentId}</p>}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Company Details */}
-                    {tenantType === 'Company' && (
-                      <div className="p-6 bg-purple-50/30 rounded-[24px] border border-purple-100 space-y-4">
-                        <div className="flex items-center gap-2 text-purple-600 mb-2">
-                          <Shield size={18} />
-                          <span className="text-xs font-black uppercase tracking-widest">Company Information</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex flex-col gap-2 col-span-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">Company legal Name</label>
-                            <input
-                              name="companyName"
-                              placeholder="LLC / Inc / Corp"
-                              defaultValue={editingTenant?.companyName || ''}
-                              required
-                              className={`px-5 py-3.5 rounded-2xl border ${errors.companyName ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-white'} outline-none focus:border-purple-500 transition-all font-medium`}
-                            />
-                            {errors.companyName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.companyName}</p>}
-                          </div>
-
-                          <div className="flex flex-col gap-2 col-span-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">Street Address</label>
-                            <input
-                              name="street"
-                              placeholder="123 Corporate Way"
-                              defaultValue={editingTenant?.street || ''}
-                              required
-                              className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-purple-500 transition-all font-medium"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2 col-span-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">Address Line 2 (Optional)</label>
-                            <input
-                              name="street2"
-                              placeholder="Building B, Suite 100"
-                              defaultValue={editingTenant?.street2 || ''}
-                              className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-purple-500 transition-all font-medium"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">City</label>
-                            <input name="city" placeholder="Business City" defaultValue={editingTenant?.city || ''} required className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">State / Province</label>
-                            <input name="state" placeholder="State" defaultValue={editingTenant?.state || ''} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">Postal Code</label>
-                            <input name="postalCode" placeholder="H4F 3G1" defaultValue={editingTenant?.postalCode || ''} required className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-slate-700 ml-1">Country</label>
-                            <input name="country" placeholder="Canada" defaultValue={editingTenant?.country || ''} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white transition-all font-medium" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-
-
-                    {/* Footer Actions */}
-                    <div className="flex justify-between items-center bg-slate-50 -mx-10 -mb-8 px-10 py-6 border-t border-slate-200 sticky bottom-0">
+                  {/* Footer Actions */}
+                  <div className="flex justify-between items-center bg-slate-50 -mx-10 -mb-8 px-10 py-6 border-t border-slate-200 sticky bottom-0">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => editingTenant ? resetForm() : setFormStep(1)}
+                    >
+                      {editingTenant ? 'Reset' : 'Back to Selection'}
+                    </Button>
+                    <div className="flex gap-3">
                       <Button
                         type="button"
                         variant="secondary"
-                        onClick={() => editingTenant ? resetForm() : setFormStep(1)}
+                        onClick={() => { setShowModal(false); setEditingTenant(null); resetForm(); }}
                       >
-                        {editingTenant ? 'Reset' : 'Back to Selection'}
+                        Cancel
                       </Button>
-                      <div className="flex gap-3">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => { setShowModal(false); setEditingTenant(null); resetForm(); }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          isLoading={saving}
-                        >
-                          {editingTenant ? 'Save Changes' : 'Create Tenant'}
-                        </Button>
-                      </div>
+                      <Button
+                        type="submit"
+                        isLoading={saving}
+                      >
+                        {editingTenant ? 'Save Changes' : 'Create Tenant'}
+                      </Button>
                     </div>
-                  </form>
-                )}
-              </div>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
-    </MainLayout >
+      {/* INVITE MODAL */}
+      {showInviteModal && invitingTenant && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-400 overflow-hidden flex flex-col">
+            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 tracking-tight">Send Invite</h3>
+                <p className="text-slate-500 font-medium text-xs mt-1">Select delivery methods for {invitingTenant.name}</p>
+              </div>
+              <button
+                onClick={() => { setShowInviteModal(false); setInvitingTenant(null); }}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
+              >
+                <Plus className="rotate-45" size={20} />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-4">
+              {invitingTenant.type === 'RESIDENT' && (
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-4">
+                  <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase tracking-wider mb-2">
+                    <AlertCircle size={14} />
+                    Resident Notice
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                    This invite will be sent to the responsible party: <span className="font-bold underline">{invitingTenant.parentName || 'Assigned Tenant'}</span>.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">DELIVERY METHODS</label>
+
+                <button
+                  onClick={() => setInviteMethods(prev => ({ ...prev, email: !prev.email }))}
+                  className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${inviteMethods.email ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${inviteMethods.email ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                    <Mail size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className={`font-bold text-sm ${inviteMethods.email ? 'text-indigo-900' : 'text-slate-700'}`}>Email Invitation</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Send credentials to {invitingTenant.email || 'Email missing'}</p>
+                  </div>
+                  {inviteMethods.email && <CheckCircle size={20} className="ml-auto text-indigo-600" />}
+                </button>
+
+                <button
+                  onClick={() => setInviteMethods(prev => ({ ...prev, sms: !prev.sms }))}
+                  className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${inviteMethods.sms ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${inviteMethods.sms ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                    <Smartphone size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className={`font-bold text-sm ${inviteMethods.sms ? 'text-indigo-900' : 'text-slate-700'}`}>SMS Invitation</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Send credentials to {invitingTenant.phone || 'Phone missing'}</p>
+                  </div>
+                  {inviteMethods.sms && <CheckCircle size={20} className="ml-auto text-indigo-600" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => { setShowInviteModal(false); setInvitingTenant(null); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1 shadow-lg shadow-indigo-100"
+                onClick={processInvite}
+                isLoading={isSendingInvite}
+                disabled={!inviteMethods.email && !inviteMethods.sms}
+              >
+                Confirm & Send
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -759,7 +896,11 @@ export const Tenants = () => {
    TENANT DETAIL COMPONENT
   ========================= */
 
-const TenantDetail = ({ tenant, onBack }) => {
+/* =========================
+   TENANT DETAIL COMPONENT
+  ========================= */
+
+const TenantDetail = ({ tenant, onBack, onSendInvite, onEdit }) => {
   const [activeTab, setActiveTab] = useState('Details');
   const [loading, setLoading] = useState(false);
   const [tenantData, setTenantData] = useState({
@@ -800,7 +941,7 @@ const TenantDetail = ({ tenant, onBack }) => {
       fetchTenantData();
       fetchTickets();
     }
-  }, [tenant?.id]);
+  }, [tenant]);
 
   const fetchTickets = async () => {
     try {
@@ -826,7 +967,6 @@ const TenantDetail = ({ tenant, onBack }) => {
   const [showAddDocument, setShowAddDocument] = useState(false);
   const [showAddTicket, setShowAddTicket] = useState(false);
   const [showAddLease, setShowAddLease] = useState(false);
-  const [showEditTenant, setShowEditTenant] = useState(false);
   const [showContactTenant, setShowContactTenant] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [viewingPolicy, setViewingPolicy] = useState(null);
@@ -1012,26 +1152,6 @@ const TenantDetail = ({ tenant, onBack }) => {
     }
   };
 
-  const handleUpdateTenant = async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    try {
-      const payload = {
-        firstName: form.name.value.split(' ')[0],
-        lastName: form.name.value.split(' ').slice(1).join(' '),
-        email: form.email.value,
-        phone: form.phone.value,
-        type: form.type.value
-      };
-      await api.put(`/api/admin/tenants/${tenant.id}`, payload);
-      alert('Tenant updated successfully');
-      setShowEditTenant(false);
-      fetchTenantData();
-    } catch (e) {
-      console.error(e);
-      alert('Failed to update tenant');
-    }
-  };
 
   return (
     <MainLayout title={`Tenant: ${tenant.name}`}>
@@ -1062,8 +1182,8 @@ const TenantDetail = ({ tenant, onBack }) => {
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
-            <Button variant="secondary" className="flex-1 md:flex-none" onClick={() => setShowEditTenant(true)}>Edit Tenant</Button>
-            <Button variant="primary" className="flex-1 md:flex-none" onClick={() => setShowContactTenant(true)}>Contact</Button>
+            <Button variant="secondary" className="flex-1 md:flex-none" onClick={() => onSendInvite(tenantData)}>Send Invite</Button>
+            <Button variant="secondary" className="flex-1 md:flex-none" onClick={onEdit}>Edit Tenant</Button>
           </div>
         </section>
 
@@ -1181,6 +1301,27 @@ const TenantDetail = ({ tenant, onBack }) => {
                       </div>
                     )}
                   </>
+                )}
+
+                {(tenantData.type === 'Resident' || tenantData.type === 'RESIDENT') && tenantData.parent && (
+                  <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 shadow-sm space-y-4">
+                    <h4 className="text-sm font-bold text-amber-700 uppercase tracking-wider flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      Resident Linking
+                    </h4>
+                    <div>
+                      <p className="text-xs text-amber-600 font-bold uppercase tracking-wider mb-2">Responsible Tenant (Billable)</p>
+                      <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold border border-amber-200">
+                          {tenantData.parent.name ? tenantData.parent.name[0] : (tenantData.parent.firstName ? tenantData.parent.firstName[0] : 'P')}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800">{tenantData.parent.name || `${tenantData.parent.firstName} ${tenantData.parent.lastName}`}</p>
+                          <span className="text-[10px] uppercase font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{tenantData.parent.type || 'Tenant'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {tenantData.residents && tenantData.residents.length > 0 && (
@@ -1943,40 +2084,6 @@ const TenantDetail = ({ tenant, onBack }) => {
         }
 
         {/* EDIT TENANT MODAL */}
-        {
-          showEditTenant && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] animate-in fade-in duration-200">
-              <form onSubmit={handleUpdateTenant} className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300">
-                <h3 className="text-2xl font-bold text-slate-800 mb-6">Edit Tenant</h3>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Name</label>
-                    <input name="name" defaultValue={tenantData.name} required className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Email</label>
-                    <input name="email" type="email" defaultValue={tenantData.email} required className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Phone</label>
-                    <input name="phone" defaultValue={tenantData.phone || '+1 '} required className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Type</label>
-                    <select name="type" defaultValue={tenantData.type} required className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all appearance-none bg-white font-medium text-slate-700">
-                      <option value="Individual">Individual</option>
-                      <option value="Company">Company</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-8">
-                  <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowEditTenant(false)}>Cancel</Button>
-                  <Button type="submit" variant="primary" className="flex-1">Save Changes</Button>
-                </div>
-              </form>
-            </div>
-          )
-        }
 
         {/* CONTACT TENANT MODAL */}
         {

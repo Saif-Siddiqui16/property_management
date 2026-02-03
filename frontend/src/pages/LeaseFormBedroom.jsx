@@ -19,7 +19,8 @@ export const LeaseFormBedroom = () => {
         startDate: '',
         endDate: '',
         monthlyRent: '',
-        securityDeposit: ''
+        securityDeposit: '',
+        sendCredentials: true
     });
 
     useEffect(() => {
@@ -67,12 +68,16 @@ export const LeaseFormBedroom = () => {
                 const res = await api.get(`/api/admin/units?propertyId=${buildingId}&limit=1000`);
                 const allUnits = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
 
-                // Simplified filtering for Bedroom-wise Lease:
+                // Improved filtering for Bedroom-wise Lease:
                 const filteredUnits = allUnits.filter(u => {
-                    // Hide if explicitly Fully Booked
+                    // 1. If it has an active Company Lease, it IS available for bedroom assignments
+                    // even if status is 'Fully Booked' or 'Occupied'
+                    if (u.hasCompanyLease) return true;
+
+                    // 2. Hide if explicitly Fully Booked (all bedrooms occupied by individual tenants)
                     if (u.status === 'Fully Booked') return false;
 
-                    // Hide if Occupied in FULL_UNIT mode
+                    // 3. Hide if Occupied in FULL_UNIT mode
                     if ((u.rentalMode === 'FULL_UNIT' || !u.rentalMode) && u.status === 'Occupied') return false;
 
                     return true;
@@ -113,7 +118,9 @@ export const LeaseFormBedroom = () => {
                 bedroomId: parseInt(form.bedroomId),
                 tenantId: parseInt(form.tenantId),
                 monthlyRent: parseFloat(form.monthlyRent) || 0,
-                securityDeposit: parseFloat(form.securityDeposit) || 0
+                securityDeposit: parseFloat(form.securityDeposit) || 0,
+                isFullUnitLease: false,
+                sendCredentials: form.sendCredentials // Explicitly send flag
             };
             const res = await api.post('/api/admin/leases', payload);
 
@@ -313,6 +320,23 @@ export const LeaseFormBedroom = () => {
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    {/* Send Credentials Toggle */}
+                    <div className="flex items-center mb-8 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <input
+                            type="checkbox"
+                            id="sendCredentials"
+                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                            checked={form.sendCredentials}
+                            onChange={(e) => setForm({ ...form, sendCredentials: e.target.checked })}
+                        />
+                        <label htmlFor="sendCredentials" className="ml-3 block text-sm font-medium text-blue-900">
+                            Send Welcome Credentials
+                            <span className="block text-xs text-blue-600 font-normal mt-0.5">
+                                Automatically send login details to the tenant via Email and SMS
+                            </span>
+                        </label>
                     </div>
 
                     <div className="flex justify-end gap-4 pt-4 border-t border-slate-100">
