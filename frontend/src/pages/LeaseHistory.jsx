@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Trash2, X, FileText, Calendar, User, Home, Bed } from 'lucide-react';
+import { Eye, Pencil, Trash2, X, FileText, Calendar, User, Home, Bed, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import api from '../api/client';
 
@@ -27,6 +27,20 @@ export const LeaseHistory = () => {
 
         fetchLeases();
     }, []);
+
+    /* SEND CREDENTIALS */
+    const handleSendCredentials = async (leaseId) => {
+        try {
+            await api.post(`/api/admin/leases/${leaseId}/send-credentials`);
+            alert('Credentials sent successfully!');
+            // Refresh
+            const res = await api.get('/api/admin/leases');
+            setLeases(res.data);
+        } catch (error) {
+            console.error(error);
+            alert('Failed to send credentials');
+        }
+    };
 
     /* DELETE */
     const handleDelete = async (id) => {
@@ -130,6 +144,17 @@ export const LeaseHistory = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right">
                                             <div className="flex justify-end gap-2">
+                                                <button
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 ${lease.isCredentialsSent
+                                                        ? 'text-emerald-600 bg-emerald-50 cursor-default'
+                                                        : 'text-amber-600 bg-amber-50 hover:bg-amber-100 hover:scale-105 shadow-sm'
+                                                        }`}
+                                                    onClick={() => !lease.isCredentialsSent && handleSendCredentials(lease.id)}
+                                                    title={lease.isCredentialsSent ? "Credentials Sent" : "⚠️ Credentials Not Sent - Click to Send"}
+                                                    disabled={lease.isCredentialsSent}
+                                                >
+                                                    {lease.isCredentialsSent ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                                                </button>
                                                 <button
                                                     className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200"
                                                     onClick={() => setSelectedLease(lease)}

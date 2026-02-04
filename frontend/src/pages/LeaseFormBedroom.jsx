@@ -12,6 +12,7 @@ export const LeaseFormBedroom = () => {
     const [bedrooms, setBedrooms] = useState([]);
     const [tenants, setTenants] = useState([]);
     const [selectedBuilding, setSelectedBuilding] = useState('');
+    const [lockedFields, setLockedFields] = useState(false);
     const [form, setForm] = useState({
         unitId: '',
         bedroomId: '',
@@ -40,9 +41,9 @@ export const LeaseFormBedroom = () => {
     const fetchTenants = async () => {
         try {
             const res = await api.get('/api/admin/tenants');
-            // Show tenants who don't have active leases
+            // Show tenants who don't have active PERSONAL leases (allow Residents on company leases)
             const filtered = res.data.filter(t =>
-                t.leaseStatus !== 'Active'
+                t.leaseStatus !== 'Active' || t.activeLeaseRole === 'RESIDENT'
             );
             setTenants(filtered);
         } catch (error) {
@@ -60,7 +61,12 @@ export const LeaseFormBedroom = () => {
             unitId: '',
             bedroomId: '',
             tenantId: '',
+            startDate: '',
+            endDate: '',
+            monthlyRent: '',
+            securityDeposit: ''
         });
+        setLockedFields(false);
 
         if (buildingId) {
             try {
@@ -91,7 +97,27 @@ export const LeaseFormBedroom = () => {
 
     const handleUnitChange = async (e) => {
         const unitId = e.target.value;
-        setForm({ ...form, unitId, bedroomId: '', tenantId: '' });
+        const selectedUnit = units.find(u => u.id.toString() === unitId);
+
+        let newForm = { ...form, unitId, bedroomId: '', tenantId: '' };
+        let isLocked = false;
+
+        if (selectedUnit && selectedUnit.hasCompanyLease && selectedUnit.companyLeaseDetails) {
+            newForm.startDate = selectedUnit.companyLeaseDetails.startDate ? selectedUnit.companyLeaseDetails.startDate.substring(0, 10) : '';
+            newForm.endDate = selectedUnit.companyLeaseDetails.endDate ? selectedUnit.companyLeaseDetails.endDate.substring(0, 10) : '';
+            newForm.monthlyRent = selectedUnit.companyLeaseDetails.monthlyRent || '';
+            newForm.securityDeposit = selectedUnit.companyLeaseDetails.securityDeposit || '';
+            isLocked = true;
+        } else {
+            // Reset if switching away
+            newForm.startDate = '';
+            newForm.endDate = '';
+            newForm.monthlyRent = '';
+            newForm.securityDeposit = '';
+        }
+
+        setForm(newForm);
+        setLockedFields(isLocked);
         setBedrooms([]);
 
         if (unitId) {
@@ -272,7 +298,8 @@ export const LeaseFormBedroom = () => {
                                     type="number"
                                     value={form.monthlyRent}
                                     onChange={handleChange}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800"
+                                    disabled={lockedFields}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 ${lockedFields ? 'bg-slate-100 text-slate-500' : 'bg-slate-50/50'}`}
                                 />
                             </div>
                         </div>
@@ -287,7 +314,8 @@ export const LeaseFormBedroom = () => {
                                     type="number"
                                     value={form.securityDeposit}
                                     onChange={handleChange}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800"
+                                    disabled={lockedFields}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 ${lockedFields ? 'bg-slate-100 text-slate-500' : 'bg-slate-50/50'}`}
                                 />
                             </div>
                         </div>
@@ -302,7 +330,8 @@ export const LeaseFormBedroom = () => {
                                     name="startDate"
                                     value={form.startDate}
                                     onChange={handleChange}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder-slate-400"
+                                    disabled={lockedFields}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 ${lockedFields ? 'bg-slate-100 text-slate-500' : 'bg-slate-50/50'}`}
                                 />
                             </div>
                         </div>
@@ -316,7 +345,8 @@ export const LeaseFormBedroom = () => {
                                     name="endDate"
                                     value={form.endDate}
                                     onChange={handleChange}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder-slate-400"
+                                    disabled={lockedFields}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 ${lockedFields ? 'bg-slate-100 text-slate-500' : 'bg-slate-50/50'}`}
                                 />
                             </div>
                         </div>
