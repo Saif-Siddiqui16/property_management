@@ -16,6 +16,14 @@ const Communication = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkRecipient, setBulkRecipient] = useState('all tenants');
+  const [bulkMessage, setBulkMessage] = useState('');
+  const [selectedRecipients, setSelectedRecipients] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedLogs, setSelectedLogs] = useState([]);
+  const [totalLogs, setTotalLogs] = useState(0);
 
   const messagesEndRef = useRef(null);
   const chatIntervalRef = useRef(null);
@@ -40,11 +48,14 @@ const Communication = () => {
     }
   };
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = async (page = 1) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await api.get('/api/admin/communication');
-      setAuditLogs(res.data);
+      const res = await api.get(`/api/admin/communication?page=${page}&limit=20`);
+      setAuditLogs(res.data.logs || []);
+      setTotalPages(res.data.pagination?.totalPages || 1);
+      setTotalLogs(res.data.pagination?.total || 0);
+      setCurrentPage(page);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -81,6 +92,7 @@ const Communication = () => {
 
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
+    setNewMessage('');
     setMessages([]);
     setLoading(true);
     const numericId = typeof user.id === 'string' && user.id.startsWith('resident_') ? parseInt(user.id.replace('resident_', ''), 10) : user.id;
@@ -88,7 +100,7 @@ const Communication = () => {
       try {
         await communicationService.markAsRead(numericId);
         await fetchConversations();
-      } catch (_) {}
+      } catch (_) { }
     }
     await fetchHistory(user.id);
     setLoading(false);
@@ -114,6 +126,38 @@ const Communication = () => {
     finally { setSending(false); }
   };
 
+  const handleSendBulkSMS = async () => {
+    if (!bulkMessage.trim()) return;
+
+    // Determine recipient based on mode
+    let recipient = bulkRecipient;
+    if (bulkRecipient === 'custom' && selectedRecipients.length > 0) {
+      recipient = selectedRecipients; // Send array of IDs
+    } else if (bulkRecipient === 'custom') {
+      alert('Please select at least one recipient');
+      return;
+    }
+
+    setSending(true);
+    try {
+      await api.post('/api/admin/communication', {
+        recipient: recipient,
+        subject: 'Bulk SMS',
+        message: bulkMessage,
+        type: 'SMS'
+      });
+      alert(`Bulk SMS sent successfully!`);
+      setBulkMessage('');
+      setSelectedRecipients([]);
+      setShowBulkModal(false);
+    } catch (error) {
+      console.error('Bulk SMS error:', error);
+      alert('Failed to send bulk SMS. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   return (
@@ -125,9 +169,17 @@ const Communication = () => {
           <div className="p-4 bg-white border-b border-slate-100 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-slate-800">History</h2>
-              <button onClick={fetchConversations} className={`p-2 rounded-full hover:bg-slate-100 ${refreshing ? 'animate-spin' : ''}`}>
-                <RefreshCw size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowBulkModal(true)}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  📱 Bulk SMS
+                </button>
+                <button onClick={fetchConversations} className={`p-2 rounded-full hover:bg-slate-100 ${refreshing ? 'animate-spin' : ''}`}>
+                  <RefreshCw size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="flex p-1 bg-slate-100 rounded-lg overflow-x-auto scrollbar-hide">
@@ -207,41 +259,164 @@ const Communication = () => {
         <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden">
           {activeTab === 'AUDIT' ? (
             <div className="flex-1 overflow-y-auto p-8">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Outgoing Communication Audit</h3>
+              <div className="max-w-5xl mx-auto space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">Outgoing Communication Audit</h3>
+                  {selectedLogs.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Delete ${selectedLogs.length} selected logs?`)) {
+                          try {
+                            await api.post('/api/admin/communication/bulk-delete', { ids: selectedLogs });
+                            setSelectedLogs([]);
+                            fetchAuditLogs(currentPage);
+                          } catch (e) {
+                            alert('Failed to delete logs');
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700"
+                    >
+                      Delete Selected ({selectedLogs.length})
+                    </button>
+                  )}
+                </div>
                 {loading ? <div className="p-20 text-center"><RefreshCw className="animate-spin mx-auto text-slate-200" size={48} /></div> : (
-                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-50 border-b border-slate-100">
-                        <tr>
-                          <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</th>
-                          <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Recipient</th>
-                          <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Event</th>
-                          <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Channel</th>
-                          <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {auditLogs.map(log => (
-                          <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4 text-xs font-medium text-slate-500">{log.date}</td>
-                            <td className="p-4 text-sm font-bold text-slate-700">{log.recipient}</td>
-                            <td className="p-4">
-                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest">
-                                {log.eventType}
-                              </span>
-                            </td>
-                            <td className="p-4 text-xs font-bold text-slate-400">{log.channel}</td>
-                            <td className="p-4 text-right">
-                              <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${log.status === 'Sent' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                {log.status}
-                              </span>
-                            </td>
+                  <>
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-100">
+                          <tr>
+                            <th className="p-4 w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedLogs.length === auditLogs.length && auditLogs.length > 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedLogs(auditLogs.map(log => log.id));
+                                  } else {
+                                    setSelectedLogs([]);
+                                  }
+                                }}
+                                className="w-4 h-4 text-indigo-600 rounded"
+                              />
+                            </th>
+                            <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</th>
+                            <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Recipient</th>
+                            <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Event</th>
+                            <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {auditLogs.map(log => (
+                            <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLogs.includes(log.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedLogs([...selectedLogs, log.id]);
+                                    } else {
+                                      setSelectedLogs(selectedLogs.filter(id => id !== log.id));
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-indigo-600 rounded"
+                                />
+                              </td>
+                              <td className="p-4 text-xs font-medium text-slate-500">{log.date}</td>
+                              <td className="p-4 text-sm font-bold text-slate-700">{log.recipient}</td>
+                              <td className="p-4">
+                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest">
+                                  {log.eventType}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right">
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Delete this log?')) {
+                                      try {
+                                        await api.delete(`/api/admin/communication/${log.id}`);
+                                        fetchAuditLogs(currentPage);
+                                      } catch (e) {
+                                        alert('Failed to delete log');
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-100"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between px-4 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        Showing {auditLogs.length > 0 ? ((currentPage - 1) * 20) + 1 : 0} to {Math.min(currentPage * 20, totalLogs)} of {totalLogs} records
+                      </div>
+
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => fetchAuditLogs(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                          >
+                            Previous
+                          </button>
+
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const pages = [];
+                              const maxShown = 5;
+                              let start = Math.max(1, currentPage - 2);
+                              let end = Math.min(totalPages, start + maxShown - 1);
+                              if (end === totalPages) start = Math.max(1, end - maxShown + 1);
+                              for (let i = start; i <= end; i++) pages.push(i);
+                              return (
+                                <>
+                                  {start > 1 && (
+                                    <>
+                                      <button onClick={() => fetchAuditLogs(1)} className="w-8 h-8 rounded-lg text-xs font-black text-slate-400 hover:bg-slate-50">1</button>
+                                      {start > 2 && <span className="text-slate-300 px-1 text-xs">...</span>}
+                                    </>
+                                  )}
+                                  {pages.map(p => (
+                                    <button
+                                      key={p}
+                                      onClick={() => fetchAuditLogs(p)}
+                                      className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${currentPage === p ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-400 hover:bg-slate-50'}`}
+                                    >
+                                      {p}
+                                    </button>
+                                  ))}
+                                  {end < totalPages && (
+                                    <>
+                                      {end < totalPages - 1 && <span className="text-slate-300 px-1 text-xs">...</span>}
+                                      <button onClick={() => fetchAuditLogs(totalPages)} className="w-8 h-8 rounded-lg text-xs font-black text-slate-400 hover:bg-slate-50">{totalPages}</button>
+                                    </>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+
+                          <button
+                            onClick={() => fetchAuditLogs(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -259,7 +434,7 @@ const Communication = () => {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-800">{selectedUser.name || selectedUser.email}</h3>
-                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Online</p>
+                    <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest">📱 SMS Only</p>
                   </div>
                 </div>
               </div>
@@ -267,10 +442,13 @@ const Communication = () => {
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {messages.map((msg, index) => {
                   const isMe = msg.senderId === currentUser?.id;
+
                   return (
                     <div key={msg.id || index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] px-5 py-3 rounded-2xl text-sm ${isMe ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 shadow-sm border border-slate-100'}`}>
-                        {msg.content}
+                      <div className={`max-w-[70%] space-y-1`}>
+                        <div className={`px-5 py-3 rounded-2xl text-sm ${isMe ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 shadow-sm border border-slate-100'}`}>
+                          {msg.content}
+                        </div>
                       </div>
                     </div>
                   );
@@ -296,6 +474,105 @@ const Communication = () => {
           )}
         </div>
       </div>
+
+      {/* Bulk SMS Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-slate-800">📱 Send Bulk SMS</h3>
+              <button onClick={() => {
+                setShowBulkModal(false);
+                setSelectedRecipients([]);
+                setBulkRecipient('all tenants');
+              }} className="text-slate-400 hover:text-slate-600">
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 block">Recipients</label>
+                <select
+                  value={bulkRecipient}
+                  onChange={(e) => {
+                    setBulkRecipient(e.target.value);
+                    setSelectedRecipients([]);
+                  }}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm"
+                >
+                  <option value="all tenants">All Tenants</option>
+                  <option value="all residents">All Residents</option>
+                  <option value="all owners">All Owners</option>
+                  <option value="custom">Select Specific People</option>
+                </select>
+              </div>
+
+              {/* Custom Selection Mode */}
+              {bulkRecipient === 'custom' && (
+                <div className="border border-slate-200 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">
+                    Select Recipients ({selectedRecipients.length} selected)
+                  </p>
+                  <div className="space-y-2">
+                    {displayedUsers.map(user => (
+                      <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedRecipients.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRecipients([...selectedRecipients, user.id]);
+                            } else {
+                              setSelectedRecipients(selectedRecipients.filter(id => id !== user.id));
+                            }
+                          }}
+                          className="w-4 h-4 text-indigo-600 rounded"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-bold text-slate-700">{user.name || user.email}</div>
+                          <div className="text-[10px] text-slate-400 uppercase font-black">{user.role}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 block">Message</label>
+                <textarea
+                  value={bulkMessage}
+                  onChange={(e) => setBulkMessage(e.target.value)}
+                  placeholder="Type your message here..."
+                  className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm resize-none"
+                  rows={5}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBulkModal(false);
+                  setSelectedRecipients([]);
+                  setBulkRecipient('all tenants');
+                }}
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendBulkSMS}
+                disabled={sending || !bulkMessage.trim()}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? 'Sending...' : `Send SMS ${bulkRecipient === 'custom' ? `(${selectedRecipients.length})` : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };

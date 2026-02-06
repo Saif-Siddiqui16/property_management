@@ -41,7 +41,9 @@ export const LeaseForm = () => {
       const res = await api.get('/api/admin/tenants');
       // Filter tenants that don't have active lease
       const filtered = res.data.filter(t =>
-        t.leaseStatus !== 'Active'
+        t.leaseStatus !== 'Active' &&
+        t.type !== 'RESIDENT' &&
+        t.type !== 'Resident'
       );
       setTenants(filtered);
     } catch (error) {

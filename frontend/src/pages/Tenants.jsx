@@ -135,10 +135,11 @@ export const Tenants = () => {
   // But we'll add a fetch for bedrooms if needed.
   useEffect(() => {
     const fetchBedrooms = async () => {
-      if (selectedUnitId && isBedroomWise) {
+      if (selectedUnitId && (isBedroomWise || tenantType === 'Resident')) {
         try {
-          const res = await api.get(`/api/admin/units/bedrooms/vacant?unitId=${selectedUnitId}`);
-
+          // If editing, tell the backend to include the current bedroom even if it's "taken" by this user
+          const includeId = editingTenant?.bedroomId ? `&includeId=${editingTenant.bedroomId}` : '';
+          const res = await api.get(`/api/admin/units/bedrooms/vacant?unitId=${selectedUnitId}${includeId}`);
           setAvailableBedrooms(res.data || []);
         } catch (e) {
           console.error("Failed to fetch bedrooms", e);
@@ -148,7 +149,7 @@ export const Tenants = () => {
       }
     };
     fetchBedrooms();
-  }, [selectedUnitId, isBedroomWise]);
+  }, [selectedUnitId, isBedroomWise, tenantType, editingTenant]);
 
   /* 🔗 HANDLE URL PARAMS */
   useEffect(() => {
@@ -690,11 +691,13 @@ export const Tenants = () => {
 
                   {/* Resident Linking */}
                   {tenantType === 'Resident' && (
-                    <div className="p-6 bg-amber-50/50 rounded-[24px] border border-amber-100 space-y-4">
+                    <div className="p-6 bg-amber-50/50 rounded-[24px] border border-amber-100 space-y-5">
                       <div className="flex items-center gap-2 text-amber-600 mb-2">
                         <AlertCircle size={18} />
-                        <span className="text-xs font-black uppercase tracking-widest">Resident Linking</span>
+                        <span className="text-xs font-black uppercase tracking-widest">Resident / Occupant Assignment</span>
                       </div>
+
+                      {/* Responsible Tenant Selection */}
                       <div className="flex flex-col gap-2">
                         <label className="text-sm font-semibold text-slate-700 ml-1">Responsible Tenant (Billable)</label>
                         <select
@@ -705,10 +708,61 @@ export const Tenants = () => {
                         >
                           <option value="">Choose a billable tenant...</option>
                           {billableTenants.map(t => (
-                            <option key={t.id} value={t.id}>{t.name} ({t.type === 'COMPANY' || t.type === 'Company' ? 'Company' : t.type === 'RESIDENT' || t.type === 'Resident' ? 'Resident' : 'Individual'})</option>
+                            <option key={t.id} value={t.id}>{t.name} ({t.type === 'COMPANY' || t.type === 'Company' ? 'Company' : 'Individual'})</option>
                           ))}
                         </select>
                         {errors.parentId && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.parentId}</p>}
+                      </div>
+
+                      <div className="h-px bg-amber-100 w-full" />
+
+                      {/* Location Selection */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Select Property / Building</label>
+                          <select
+                            value={selectedPropertyId}
+                            onChange={(e) => handleBuildingChange(e.target.value)}
+                            className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-indigo-500 transition-all font-medium text-slate-800"
+                          >
+                            <option value="">Choose Property...</option>
+                            {properties.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Select Unit</label>
+                          <select
+                            value={selectedUnitId}
+                            onChange={(e) => setSelectedUnitId(e.target.value)}
+                            disabled={!selectedPropertyId}
+                            className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-indigo-500 transition-all font-medium text-slate-800 disabled:opacity-50 disabled:bg-slate-50"
+                          >
+                            <option value="">Select Unit...</option>
+                            {availableUnits.map(u => (
+                              <option key={u.id} value={u.id}>{u.unitNumber || u.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Bedroom Selection (Shows if unit is bedroom-wise OR for Residents to specify room) */}
+                        {(isBedroomWise || tenantType === 'Resident') && selectedUnitId && (
+                          <div className="flex flex-col gap-2 md:col-span-2">
+                            <label className="text-sm font-semibold text-slate-700 ml-1">Select Assigned Bedroom</label>
+                            <select
+                              value={selectedBedroomId}
+                              onChange={(e) => setSelectedBedroomId(e.target.value)}
+                              className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-indigo-500 transition-all font-medium text-slate-800"
+                            >
+                              <option value="">Select Bedroom (Optional)...</option>
+                              {availableBedrooms.map(b => (
+                                <option key={b.id} value={b.id}>{b.bedroomNumber || b.roomNumber}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -922,9 +976,9 @@ const TenantDetail = ({ tenant, onBack, onSendInvite, onEdit }) => {
       setTenantData({
         ...data,
         name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim(),
-        leaseStatus: data.leases?.find(l => l.status === 'Active')?.status || data.leases?.find(l => l.status === 'DRAFT')?.status || 'Inactive',
-        property: data.leases?.[0]?.unit?.property?.name || 'No Property',
-        unit: data.leases?.[0]?.unit?.name || 'No Unit'
+        leaseStatus: data.type === 'RESIDENT' ? 'Occupant' : (data.leases?.find(l => l.status === 'Active')?.status || data.leases?.find(l => l.status === 'DRAFT')?.status || 'Inactive'),
+        property: data.leases?.find(l => l.status === 'Active')?.unit?.property?.name || data.assignedUnit?.property?.name || 'No Property',
+        unit: data.leases?.find(l => l.status === 'Active')?.unit?.unitNumber || data.leases?.find(l => l.status === 'Active')?.unit?.name || data.assignedUnit?.unitNumber || data.assignedUnit?.name || 'No Unit'
       });
       setDocuments(data.documents || []);
       setPolicies(data.insurances || []);
