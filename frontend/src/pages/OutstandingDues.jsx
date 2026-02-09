@@ -38,8 +38,10 @@ const OutstandingDues = () => {
       });
       alert('Payment recorded successfully');
       setShowPaymentModal(false);
+      setSelectedInvoice(null); // Force refresh of selected state
       setPaymentForm({ amount: '', paymentMethod: 'Cash' });
       fetchDues();
+
     } catch (error) {
       console.error('Error recording payment:', error);
       alert('Failed to record payment');
@@ -78,11 +80,14 @@ const OutstandingDues = () => {
                   <td className="p-4 border-b border-gray-100 text-sm">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${d.status === 'Overdue'
                       ? 'bg-red-50 text-red-700 border-red-100'
-                      : 'bg-orange-50 text-orange-700 border-orange-100'
+                      : d.status === 'Partial'
+                        ? 'bg-amber-50 text-amber-700 border-amber-100'
+                        : 'bg-orange-50 text-orange-700 border-orange-100'
                       }`}>
                       {d.status}
-                      {d.daysOverdue > 0 && ` (${d.daysOverdue} days)`}
+                      {d.daysOverdue > 0 && d.status !== 'Partial' && ` (${d.daysOverdue} days)`}
                     </span>
+
                   </td>
                   <td className="p-4 border-b border-gray-100 text-sm">
                     <div className="flex gap-2">
@@ -127,9 +132,13 @@ const OutstandingDues = () => {
                 <div className="flex flex-col"><label className="text-xs text-slate-500 mb-1">Due Date</label><span className="text-sm font-medium text-slate-900">{selectedInvoice.dueDate}</span></div>
                 <div className="flex flex-col"><label className="text-xs text-slate-500 mb-1">Status</label><span className="text-sm font-medium text-slate-900">{selectedInvoice.status}</span></div>
 
+                <div className="flex flex-col"><label className="text-xs text-slate-500 mb-1">Total Amount</label><span className="text-sm font-medium text-slate-900">${selectedInvoice.totalAmount?.toLocaleString('en-CA')}</span></div>
+                <div className="flex flex-col"><label className="text-xs text-slate-500 mb-1">Already Paid</label><span className="text-sm font-medium text-emerald-600">-${selectedInvoice.paidAmount?.toLocaleString('en-CA')}</span></div>
+
                 <div className="col-span-2 mt-2 p-4 rounded-lg bg-red-50 text-center text-xl font-bold text-red-800 border border-red-100">
-                  ${selectedInvoice.amount.toLocaleString('en-CA')} Due
+                  ${selectedInvoice.amount.toLocaleString('en-CA')} Remaining Due
                 </div>
+
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -158,11 +167,16 @@ const OutstandingDues = () => {
                 </button>
               </div>
 
-              <div className="mb-4">
-                <p className="text-sm text-slate-600 mb-1">Invoice: <span className="font-mono font-semibold text-slate-900">{selectedInvoice.invoice}</span></p>
-                <p className="text-sm text-slate-600 mb-1">Tenant: <span className="font-semibold text-slate-900">{selectedInvoice.tenant}</span></p>
-                <p className="text-sm text-slate-600">Outstanding: <span className="font-semibold text-red-600">${selectedInvoice.amount.toLocaleString('en-CA')}</span></p>
+              <div className="mb-4 space-y-1">
+                <p className="text-sm text-slate-600">Invoice: <span className="font-mono font-semibold text-slate-900">{selectedInvoice.invoice}</span></p>
+                <p className="text-sm text-slate-600">Tenant: <span className="font-semibold text-slate-900">{selectedInvoice.tenant}</span></p>
+                <div className="flex justify-between text-xs text-slate-500 pt-2 border-t border-slate-50">
+                  <span>Total: ${selectedInvoice.totalAmount?.toLocaleString('en-CA')}</span>
+                  <span>Paid: ${selectedInvoice.paidAmount?.toLocaleString('en-CA')}</span>
+                </div>
+                <p className="text-sm font-bold text-slate-700 pt-1">Remaining: <span className="text-red-600">${selectedInvoice.amount.toLocaleString('en-CA')}</span></p>
               </div>
+
 
               <div className="space-y-4 mb-6">
                 <label className="flex flex-col gap-1.5">

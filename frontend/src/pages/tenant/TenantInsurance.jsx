@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TenantLayout } from '../../layouts/TenantLayout';
-import { ShieldCheck, AlertTriangle, Calendar, Info, Eye, X, FileText, Upload } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Calendar, Info, Eye, X, FileText, Upload, Download } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import api from '../../api/client';
@@ -335,24 +335,69 @@ export const TenantInsurance = () => {
                                 <X size={24} />
                             </button>
                         </div>
-                        <div className="relative aspect-[16/10] bg-slate-100 flex items-center justify-center">
-                            <div className="text-center space-y-6">
-                                <div className="w-24 h-24 bg-white rounded-[32px] flex items-center justify-center mx-auto shadow-2xl text-slate-200">
-                                    <FileText size={48} />
+                        <div className="relative aspect-[16/10] bg-slate-100 flex flex-col items-center justify-center overflow-hidden">
+                            {insurance.documentUrl ? (
+                                insurance.documentUrl.toLowerCase().endsWith('.pdf') ? (
+                                    <iframe
+                                        src={`${insurance.documentUrl}#toolbar=0`}
+                                        className="w-full h-full border-0"
+                                        title="Policy Preview"
+                                    />
+                                ) : (
+                                    <img
+                                        src={insurance.documentUrl}
+                                        alt="Policy Certificate"
+                                        className="max-w-full max-h-full object-contain"
+                                    />
+                                )
+                            ) : (
+                                <div className="text-center space-y-6">
+                                    <div className="w-24 h-24 bg-white rounded-[32px] flex items-center justify-center mx-auto shadow-2xl text-slate-200">
+                                        <FileText size={48} />
+                                    </div>
+                                    <p className="text-slate-400 font-bold text-lg px-8">No document available to preview.</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-slate-400 font-bold text-lg px-8">Your insurance document is ready for download and review.</p>
-                                    <a
-                                        href={`${api.defaults.baseURL.replace('/api', '')}${insurance.documentUrl}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-block mt-4"
-                                    >
-                                        <Button variant="primary" className="h-16 px-10 rounded-2xl text-lg shadow-xl shadow-primary-100">
-                                            Download Secure PDF
-                                        </Button>
-                                    </a>
-                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-8 bg-slate-50/50 flex flex-col items-center gap-6">
+                            <div className="text-center">
+                                <p className="text-slate-500 font-bold text-sm">Your insurance document is ready for download and review.</p>
+                            </div>
+                            <div className="flex gap-4 w-full">
+                                <Button
+                                    variant="secondary"
+                                    className="flex-1 h-16 rounded-2xl text-lg font-bold shadow-sm"
+                                    onClick={() => window.open(insurance.documentUrl, '_blank')}
+                                >
+                                    <Eye size={20} className="mr-2" />
+                                    Open Original
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="flex-1 h-16 rounded-2xl text-lg font-bold shadow-xl shadow-primary-100"
+                                    onClick={async () => {
+                                        try {
+                                            const res = await api.get(`/api/tenant/documents/${insurance.uploadedDocumentId}/download`, {
+                                                responseType: 'blob'
+                                            });
+                                            const url = window.URL.createObjectURL(new Blob([res.data]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `Insurance_Policy_${insurance.policyNumber}.pdf`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.remove();
+                                            window.URL.revokeObjectURL(url);
+                                        } catch (e) {
+                                            console.error('Download failed', e);
+                                            alert('Could not download certificate');
+                                        }
+                                    }}
+                                >
+                                    <Download size={20} className="mr-2" />
+                                    Download Secure PDF
+                                </Button>
                             </div>
                         </div>
                     </div>

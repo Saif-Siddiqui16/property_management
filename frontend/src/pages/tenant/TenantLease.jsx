@@ -2,6 +2,7 @@ import React from 'react';
 import { TenantLayout } from '../../layouts/TenantLayout';
 import { FileText, Calendar, DollarSign, Home, CheckCircle2 } from 'lucide-react';
 import api from '../../api/client';
+import { Link } from 'react-router-dom';
 
 export const TenantLease = () => {
     const [lease, setLease] = React.useState(null);
@@ -21,20 +22,20 @@ export const TenantLease = () => {
     if (!lease) {
         return (
             <TenantLayout title="My Lease">
-                <div className="p-8 text-center text-slate-500">Loading lease details or no active lease found...</div>
+                <div className="p-8 text-center text-slate-500 font-medium">Loading lease details...</div>
             </TenantLayout>
         );
     }
 
     return (
         <TenantLayout title="My Lease">
-            <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* LEASE SUMMARY CARD */}
                 <section className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden shadow-slate-100/50">
-                    <div className="bg-primary-600 p-8 text-white flex justify-between items-center">
+                    <div className="bg-indigo-600 p-8 text-white flex justify-between items-center">
                         <div className="space-y-1">
                             <h2 className="text-2xl font-bold">Standard Lease Agreement</h2>
-                            <p className="text-primary-100 font-medium">Agreement ID: {lease.id}</p>
+                            <p className="text-indigo-100 font-medium tracking-wide">Agreement ID: {lease.id}</p>
                         </div>
                         <div className="bg-emerald-400/20 text-emerald-50 px-4 py-2 rounded-xl border border-emerald-400/30 flex items-center gap-2 font-bold text-sm">
                             <CheckCircle2 size={18} />
@@ -45,7 +46,7 @@ export const TenantLease = () => {
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-8">
                             <div className="flex gap-5">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
                                     <Home size={24} />
                                 </div>
                                 <div className="space-y-1">
@@ -56,12 +57,12 @@ export const TenantLease = () => {
                             </div>
 
                             <div className="flex gap-5">
-                                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
                                     <DollarSign size={24} />
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Monthly Rent</p>
-                                    <h4 className="text-2xl font-black text-slate-800">${lease.monthlyRent.toLocaleString('en-CA')}</h4>
+                                    <h4 className="text-2xl font-black text-slate-800 tracking-tight">${lease.monthlyRent.toLocaleString('en-CA')}</h4>
                                     <p className="text-sm text-slate-500 font-medium">Due on 1st of every month</p>
                                 </div>
                             </div>
@@ -69,7 +70,7 @@ export const TenantLease = () => {
 
                         <div className="space-y-8">
                             <div className="flex gap-5">
-                                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-sm">
                                     <Calendar size={24} />
                                 </div>
                                 <div className="space-y-1">
@@ -82,12 +83,12 @@ export const TenantLease = () => {
                             </div>
 
                             <div className="flex gap-5">
-                                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 shadow-sm">
                                     <FileText size={24} />
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Security Deposit</p>
-                                    <h4 className="text-lg font-bold text-slate-800">${lease.deposit.toLocaleString('en-CA')}</h4>
+                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight">${lease.deposit.toLocaleString('en-CA')}</h4>
                                     <p className="text-sm text-slate-500 font-medium">Held in Escrow</p>
                                 </div>
                             </div>
@@ -107,7 +108,7 @@ export const TenantLease = () => {
                                 'Annual rent increase: 5%'
                             ].map((term, i) => (
                                 <div key={i} className="flex items-center gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-primary-600"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
                                     <span className="text-sm font-medium text-slate-600">{term}</span>
                                 </div>
                             ))}
@@ -122,11 +123,14 @@ export const TenantLease = () => {
                         <div className="pt-2 space-y-3">
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                 <span className="text-sm font-bold text-slate-700">Office Phone</span>
-                                <span className="text-sm font-black text-primary-600 uppercase">+1 555-0123</span>
+                                <span className="text-sm font-black text-indigo-600 uppercase">{lease.adminPhone || 'N/A'}</span>
                             </div>
-                            <button className="w-full py-4 rounded-2xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-50">
-                                Message Manager
-                            </button>
+                            <Link
+                                to="/tenant/communication"
+                                className="block w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-center hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
+                            >
+                                Message Admin
+                            </Link>
                         </div>
                     </section>
                 </div>

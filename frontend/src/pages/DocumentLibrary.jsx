@@ -279,6 +279,10 @@ export const DocumentLibrary = () => {
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
                                                             onClick={async () => {
+                                                                if (doc.fileUrl.startsWith('http')) {
+                                                                    window.open(doc.fileUrl, '_blank');
+                                                                    return;
+                                                                }
                                                                 try {
                                                                     const token = localStorage.getItem('accessToken');
                                                                     const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download?disposition=inline`, {
@@ -289,11 +293,23 @@ export const DocumentLibrary = () => {
                                                                     if (!response.ok) throw new Error('Failed to open document');
                                                                     const blob = await response.blob();
                                                                     const url = window.URL.createObjectURL(blob);
-                                                                    window.open(url, '_blank');
+
+                                                                    // Create a temporary link and click it to open in new tab
+                                                                    const link = document.createElement('a');
+                                                                    link.href = url;
+                                                                    link.target = '_blank';
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+
+                                                                    // We don't revokeObjectURL immediately as the new tab needs it to load
+                                                                    setTimeout(() => window.URL.revokeObjectURL(url), 100);
                                                                 } catch (err) {
                                                                     console.error("Failed to open document", err);
-                                                                    alert("Failed to open document");
+                                                                    const msg = err.response?.data?.message || err.message || "Failed to open document";
+                                                                    alert(msg);
                                                                 }
+
                                                             }}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                                                             title="Open"
@@ -303,6 +319,20 @@ export const DocumentLibrary = () => {
                                                         <button
                                                             onClick={async () => {
                                                                 try {
+                                                                    const fileName = doc.name || 'document';
+
+                                                                    // If Cloudinary URL, download directly
+                                                                    if (doc.fileUrl.startsWith('http')) {
+                                                                        const link = document.createElement('a');
+                                                                        link.href = doc.fileUrl;
+                                                                        link.download = fileName;
+                                                                        link.target = '_blank';
+                                                                        document.body.appendChild(link);
+                                                                        link.click();
+                                                                        document.body.removeChild(link);
+                                                                        return;
+                                                                    }
+
                                                                     const token = localStorage.getItem('accessToken');
                                                                     const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download`, {
                                                                         headers: {
@@ -314,15 +344,17 @@ export const DocumentLibrary = () => {
                                                                     const url = window.URL.createObjectURL(blob);
                                                                     const link = document.createElement('a');
                                                                     link.href = url;
-                                                                    link.download = doc.name;
+                                                                    link.download = fileName;
                                                                     document.body.appendChild(link);
                                                                     link.click();
                                                                     document.body.removeChild(link);
                                                                     window.URL.revokeObjectURL(url);
                                                                 } catch (err) {
                                                                     console.error("Download failed", err);
-                                                                    alert("Failed to download file");
+                                                                    const msg = err.response?.data?.message || err.message || "Failed to download file";
+                                                                    alert(msg);
                                                                 }
+
                                                             }}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
                                                             title="Download"

@@ -1,7 +1,29 @@
-import React from 'react';
-import { User, Search, Settings, Menu } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Menu } from 'lucide-react';
+import api from '../../api/client';
 
 export const OwnerTopbar = ({ title, onMenuClick }) => {
+    const [ownerName, setOwnerName] = useState('Loading...');
+    const [ownerInitials, setOwnerInitials] = useState('...');
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const res = await api.get('/api/owner/profile');
+                if (res.data.name) {
+                    setOwnerName(res.data.name);
+                    const initials = res.data.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                    setOwnerInitials(initials);
+                }
+            } catch (err) {
+                console.error("Failed to fetch owner profile", err);
+                setOwnerName('Owner');
+                setOwnerInitials('OW');
+            }
+        };
+        fetchProfile();
+    }, []);
+
     return (
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
             <div className="flex items-center gap-4">
@@ -23,25 +45,13 @@ export const OwnerTopbar = ({ title, onMenuClick }) => {
             </div>
 
             <div className="flex items-center gap-3 md:gap-6">
-                {/* Search Placeholder */}
-                <div className="hidden xl:flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl text-slate-400 focus-within:bg-white focus-within:border-indigo-200 transition-all w-64 group">
-                    <Search size={16} className="group-focus-within:text-indigo-600 transition-colors" />
-                    <input
-                        type="text"
-                        placeholder="Search portfolio..."
-                        className="bg-transparent border-none outline-none text-xs font-bold text-slate-600 w-full placeholder:text-slate-300"
-                        disabled
-                    />
-                </div>
-
                 <div className="flex items-center gap-2 md:gap-4 md:border-l md:border-slate-100 md:pl-6">
                     <div className="flex items-center gap-3 md:pl-2 group cursor-default">
                         <div className="text-right hidden sm:block">
-                            <p className="text-xs font-black text-slate-800 italic">Owner Demo</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">ID: owner_demo_1</p>
+                            <p className="text-xs font-black text-slate-800 italic">{ownerName}</p>
                         </div>
                         <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-slate-200 shrink-0">
-                            OD
+                            {ownerInitials}
                         </div>
                     </div>
                 </div>

@@ -57,7 +57,16 @@ export const TenantInvoices = () => {
                                         <td className="px-6 py-5 font-bold text-slate-700">{inv.id}</td>
                                         <td className="px-6 py-5 font-bold text-slate-800">{inv.month}</td>
                                         <td className="px-6 py-5 text-sm font-medium text-slate-500">{inv.date}</td>
-                                        <td className="px-6 py-5 font-black text-slate-800">{inv.amount}</td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col">
+                                                <span className="font-black text-slate-800">{inv.amount}</span>
+                                                {inv.status === 'Partial' && (
+                                                    <span className="text-[10px] text-amber-600 font-bold uppercase tracking-tighter">
+                                                        Balance: ${inv.balanceDue?.toLocaleString('en-CA')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-5">
                                             <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-tight border ${inv.status === 'Paid'
                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
@@ -180,8 +189,12 @@ export const TenantInvoices = () => {
                                 >
                                     Download PDF
                                 </Button>
-                                {viewingInvoice.status === 'Due' && (
-                                    <Button variant="primary" className="flex-1 rounded-2xl py-4 h-auto font-bold">
+                                {(viewingInvoice.status === 'Due' || viewingInvoice.status === 'Partial') && (
+                                    <Button
+                                        variant="primary"
+                                        className="flex-1 rounded-2xl py-4 h-auto font-bold"
+                                        onClick={() => window.location.href = '/tenant/payments'}
+                                    >
                                         Pay Now
                                     </Button>
                                 )}

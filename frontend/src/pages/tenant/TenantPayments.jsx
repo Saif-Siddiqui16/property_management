@@ -17,8 +17,12 @@ export const TenantPayments = () => {
         const fetchInvoices = async () => {
             try {
                 const res = await api.get('/api/tenant/invoices');
-                // Find first due invoice
-                const due = res.data.find(inv => inv.status === 'Due' || inv.status === 'Overdue');
+                // Find first due, overdue or partial invoice
+                const due = res.data.find(inv =>
+                    inv.status === 'Due' ||
+                    inv.status === 'Overdue' ||
+                    inv.status === 'Partial'
+                );
                 if (due) setInvoiceToPay(due);
             } catch (e) {
                 console.error(e);
@@ -37,7 +41,7 @@ export const TenantPayments = () => {
         try {
             await api.post('/api/tenant/pay', {
                 invoiceId: invoiceToPay.dbId, // Backend needs DB ID
-                amount: invoiceToPay.amount,
+                amount: invoiceToPay.balanceDue || invoiceToPay.amount,
                 paymentMethod: selectedMethod
             });
 
@@ -124,7 +128,7 @@ export const TenantPayments = () => {
                                         </>
                                     ) : (
                                         <>
-                                            Pay ${invoiceToPay?.amount?.toLocaleString()}
+                                            Pay ${(invoiceToPay?.balanceDue || invoiceToPay?.amount)?.toLocaleString()}
                                             <ArrowRight size={20} />
                                         </>
                                     )}
@@ -144,8 +148,8 @@ export const TenantPayments = () => {
 
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center text-slate-400 font-medium text-sm">
-                                    <span>Rent ({invoiceToPay?.month})</span>
-                                    <span className="text-white font-bold tracking-tight">${invoiceToPay?.amount?.toLocaleString()}</span>
+                                    <span>{invoiceToPay?.status === 'Partial' ? 'Remaining Balance' : 'Rent'} ({invoiceToPay?.month})</span>
+                                    <span className="text-white font-bold tracking-tight">${(invoiceToPay?.balanceDue || invoiceToPay?.amount)?.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-slate-400 font-medium text-sm">
                                     <span>Processing Fee</span>
@@ -154,9 +158,9 @@ export const TenantPayments = () => {
                             </div>
 
                             <div className="pt-8 border-t border-slate-800 space-y-1">
-                                <p className="text-xs text-slate-500 font-black uppercase tracking-widest">Total to Pay</p>
+                                <p className="text-xs text-slate-500 font-black uppercase tracking-widest">{invoiceToPay?.status === 'Partial' ? 'Balance to Pay' : 'Total to Pay'}</p>
                                 <div className="flex justify-between items-end">
-                                    <span className="text-4xl font-black tracking-tighter">${invoiceToPay?.amount?.toLocaleString()}</span>
+                                    <span className="text-4xl font-black tracking-tighter">${(invoiceToPay?.balanceDue || invoiceToPay?.amount)?.toLocaleString()}</span>
                                     <span className="text-xs font-bold text-slate-500 mb-2 underline decoration-slate-700 underline-offset-4">USD</span>
                                 </div>
                             </div>

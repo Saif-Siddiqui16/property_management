@@ -56,7 +56,12 @@ export const LeaseHistory = () => {
 
     /* SAVE EDIT */
     const handleEditSave = async (e) => {
-        e.preventDefault();
+        if (!editLease.tenantFirstName?.trim() || !editLease.tenantLastName?.trim()) {
+            alert('First Name and Last Name are required.');
+            return;
+        }
+
+        e?.preventDefault();
         try {
             const payload = {
                 monthlyRent: editLease.monthlyRent,

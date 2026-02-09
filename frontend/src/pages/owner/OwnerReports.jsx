@@ -62,18 +62,7 @@ export const OwnerReports = () => {
         fetchReports();
     }, []);
 
-    const defaultStats = [
-        { label: 'Reports Viewable', value: '—', sub: 'Last 12 months' },
-        { label: 'Export Limit', value: 'Unlimited', sub: 'PDF / CSV Formats' },
-        { label: 'Data Latency', value: 'Real-time', sub: 'Synced with Admin' }
-    ];
-    const statsRows = stats
-        ? [
-            { label: 'Reports Viewable', value: stats.reportsViewable ?? '—', sub: stats.reportsViewableSub ?? '' },
-            { label: 'Export Limit', value: stats.exportLimit ?? 'Unlimited', sub: stats.exportLimitSub ?? '' },
-            { label: 'Data Latency', value: stats.dataLatency ?? 'Real-time', sub: stats.dataLatencySub ?? '' }
-        ]
-        : defaultStats;
+
 
     return (
         <OwnerLayout title="Performance Reports">
@@ -89,20 +78,6 @@ export const OwnerReports = () => {
                     </Button>
                 </div>
 
-                {error && (
-                    <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {statsRows.map((s, i) => (
-                        <div key={i} className="bg-white px-8 py-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-                            <p className="text-xl font-black text-slate-800 italic">{s.value}</p>
-                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter mt-1">{s.sub}</p>
-                        </div>
-                    ))}
-                </div>
-
                 {loading ? (
                     <div className="flex items-center justify-center py-16">
                         <RefreshCw size={40} className="animate-spin text-slate-300" />
@@ -113,7 +88,7 @@ export const OwnerReports = () => {
                         <p className="font-medium">No reports available.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 md:gap-8">
                         {availableReports.map((report, idx) => (
                             <div key={report.id || idx} className="bg-white rounded-2xl md:rounded-2.5rem p-6 md:p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-100/50 transition-all duration-500 group flex flex-col sm:flex-row gap-6 md:gap-8">
                                 <div className={`w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-2xl ${report.bg || 'bg-slate-50'} ${report.color || 'text-slate-600'} flex items-center justify-center transition-transform group-hover:scale-110 duration-500 shadow-inner mx-auto sm:mx-0`}>
@@ -130,25 +105,66 @@ export const OwnerReports = () => {
                                         <p className="text-sm text-slate-500 font-medium leading-relaxed">{report.description}</p>
                                     </div>
                                     <div className="flex flex-col sm:flex-row items-center justify-between mt-6 md:mt-8 gap-4">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Run: {report.lastGenerated || '—'}</p>
-                                        <div className="flex gap-2 w-full sm:w-auto">
-                                            <button type="button" className="flex-1 sm:flex-none p-3 rounded-xl bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 flex justify-center">
-                                                <ExternalLink size={18} />
-                                            </button>
+                                        <div className="flex flex-col gap-1">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Run: {report.lastGenerated || '—'}</p>
+                                        </div>
+                                        <div className="flex gap-2 w-full sm:w-auto items-center">
+                                            {report.type === 'monthly_summary' && (
+                                                <select
+                                                    className="h-11 px-3 rounded-xl bg-slate-50 border-none text-xs font-bold text-slate-600 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    defaultValue={new Date().getMonth()}
+                                                    id={`month-select-${idx}`}
+                                                >
+                                                    {Array.from({ length: 12 }, (_, i) => (
+                                                        <option key={i} value={i}>
+                                                            {new Date(0, i).toLocaleString('default', { month: 'short' })}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+
+                                            {/* Year Selector for all reports to control reporting period header/data */}
+                                            <select
+                                                className="h-11 px-3 rounded-xl bg-slate-50 border-none text-xs font-bold text-slate-600 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                                onClick={(e) => e.stopPropagation()}
+                                                defaultValue={new Date().getFullYear()}
+                                                id={`year-select-${idx}`}
+                                            >
+                                                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                                                    <option key={year} value={year}>{year}</option>
+                                                ))}
+                                            </select>
+
                                             <Button
                                                 variant="secondary"
                                                 className="flex-[3] sm:flex-none gap-2 h-11 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest border-2"
                                                 onClick={async () => {
                                                     try {
-                                                        const res = await api.get(`/api/admin/reports/${report.id || report.type}/download`, { responseType: 'blob' });
+                                                        const yearSelect = document.getElementById(`year-select-${idx}`);
+                                                        const selectedYear = yearSelect ? yearSelect.value : new Date().getFullYear();
+
+                                                        let query = `?year=${selectedYear}`;
+
+                                                        if (report.type === 'monthly_summary') {
+                                                            const monthSelect = document.getElementById(`month-select-${idx}`);
+                                                            const selectedMonth = monthSelect ? parseInt(monthSelect.value) + 1 : new Date().getMonth() + 1;
+                                                            query += `&month=${selectedMonth}`;
+                                                        } else {
+                                                            // For other reports, default to current month for headers if needed
+                                                            query += `&month=${new Date().getMonth() + 1}`;
+                                                        }
+
+                                                        const res = await api.get(`/api/owner/reports/${report.id || report.type}/download${query}`, { responseType: 'blob' });
                                                         const url = window.URL.createObjectURL(new Blob([res.data]));
                                                         const link = document.createElement('a');
                                                         link.href = url;
-                                                        link.setAttribute('download', `${(report.title || 'report').toLowerCase().replace(/\s+/g, '_')}.pdf`);
+                                                        link.setAttribute('download', `${(report.title || 'report').toLowerCase().replace(/\s+/g, '_')}_${selectedYear}.pdf`);
                                                         document.body.appendChild(link);
                                                         link.click();
                                                         link.remove();
                                                     } catch (e) {
+                                                        console.error(e);
                                                         alert(e.response?.data?.message || 'Report download failed.');
                                                     }
                                                 }}
@@ -162,19 +178,6 @@ export const OwnerReports = () => {
                         ))}
                     </div>
                 )}
-
-                <div className="bg-slate-900 rounded-2xl md:rounded-2.5rem p-6 md:p-10 flex flex-col md:flex-row items-center justify-between text-white overflow-hidden relative group gap-8">
-                    <div className="relative z-10 space-y-4 max-w-xl text-center md:text-left">
-                        <h4 className="text-xl md:text-2xl font-black italic tracking-tight uppercase">Custom Report Requests</h4>
-                        <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                            Need a specific data extract or a consolidated tax statement not listed here? Contact your relationship manager directly from the Admin panel to request custom reporting modules.
-                        </p>
-                        <button type="button" className="w-full sm:w-auto h-12 px-8 rounded-xl bg-indigo-600 text-white font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-900/20 active:scale-95">
-                            Contact Admin Support
-                        </button>
-                    </div>
-                    <PieChart size={240} className="hidden md:block absolute -right-20 -top-20 opacity-10 group-hover:scale-110 transition-transform duration-1000 rotate-12" />
-                </div>
             </div>
         </OwnerLayout>
     );

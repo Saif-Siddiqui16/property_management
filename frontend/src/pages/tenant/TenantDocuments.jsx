@@ -83,15 +83,12 @@ export const TenantDocuments = () => {
         window.open(fileUrl, '_blank');
     };
 
-    const handleDownload = async (fileUrlInfo, fileName) => {
+    const handleDownload = async (docId, fileName) => {
         try {
-            const fileUrl = fileUrlInfo.startsWith('http')
-                ? fileUrlInfo
-                : `${api.defaults.baseURL.replace('/api', '')}${fileUrlInfo}`;
-
-            const response = await fetch(fileUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const res = await api.get(`/api/tenant/documents/${docId}/download`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', fileName);
@@ -169,7 +166,7 @@ export const TenantDocuments = () => {
                                                             <Eye size={20} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDownload(doc.fileUrl, doc.name)}
+                                                            onClick={() => handleDownload(doc.id, doc.name)}
                                                             className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
                                                             title="Download PDF"
                                                         >

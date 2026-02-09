@@ -41,10 +41,13 @@ const dashboardCards = [
 
 export const TenantDashboard = () => {
     const [name, setName] = React.useState('Tenant');
+    const [recentTickets, setRecentTickets] = React.useState([]);
+    const [unreadCount, setUnreadCount] = React.useState(0);
+    const [nextDue, setNextDue] = React.useState('');
     const [dashboardCards, setDashboardCards] = React.useState([
         { title: 'Current Rent', value: 'Loading...', subValue: '-', icon: CreditCard, color: 'bg-blue-500', path: '/tenant/invoices' },
         { title: 'Lease Status', value: 'Loading...', subValue: '-', icon: FileText, color: 'bg-emerald-500', path: '/tenant/lease' },
-        { title: 'Maintenance', value: '0 Open', subValue: '0 In Progress', icon: Wrench, color: 'bg-amber-500', path: '/tenant/tickets' },
+        { title: 'Maintenance', value: '0 Open', subValue: 'Check Tickets', icon: Wrench, color: 'bg-amber-500', path: '/tenant/tickets' },
         { title: 'Insurance', value: '...', subValue: '-', icon: ShieldCheck, color: 'bg-purple-500', path: '/tenant/insurance' }
     ]);
 
@@ -55,10 +58,20 @@ export const TenantDashboard = () => {
                 const { tenantName, stats } = res.data;
 
                 setName(tenantName || 'Tenant');
+                setRecentTickets(stats.recentTickets || []);
+                setUnreadCount(stats.unreadCount || 0);
+
+                if (stats.nextDueDate) {
+                    const d = new Date(stats.nextDueDate);
+                    setNextDue(`Your next rent payment is due on ${d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}.`);
+                } else {
+                    setNextDue('No upcoming rent payments due.');
+                }
+
                 setDashboardCards([
                     {
                         title: 'Current Rent',
-                        value: `$${stats.currentRent.toLocaleString('en-CA')}`,
+                        value: stats.currentRent > 0 ? `$${stats.currentRent.toLocaleString('en-CA')}` : '$0.00',
                         subValue: stats.rentDueStatus,
                         icon: CreditCard,
                         color: 'bg-blue-500',
@@ -67,7 +80,7 @@ export const TenantDashboard = () => {
                     {
                         title: 'Lease Status',
                         value: stats.leaseStatus,
-                        subValue: stats.leaseExpiry ? new Date(stats.leaseExpiry).toLocaleDateString() : 'N/A',
+                        subValue: stats.leaseExpiry ? `Ends ${new Date(stats.leaseExpiry).toLocaleDateString()}` : 'N/A',
                         icon: FileText,
                         color: 'bg-emerald-500',
                         path: '/tenant/lease'
@@ -83,7 +96,7 @@ export const TenantDashboard = () => {
                     {
                         title: 'Insurance',
                         value: stats.insuranceStatus,
-                        subValue: 'Check Status',
+                        subValue: 'Compliance Status',
                         icon: ShieldCheck,
                         color: 'bg-purple-500',
                         path: '/tenant/insurance'
@@ -95,32 +108,16 @@ export const TenantDashboard = () => {
         };
         fetchDashboard();
     }, []);
+
     return (
         <TenantLayout title="Dashboard">
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* INSURANCE ALERT BANNER */}
-                <section className="bg-red-50 border border-red-100 rounded-3xl p-6 flex flex-col md:flex-row gap-6 items-center justify-between shadow-sm animate-in slide-in-from-top-4 duration-700">
-                    <div className="flex gap-5 items-center">
-                        <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-red-100">
-                            <AlertCircle size={24} />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="text-lg font-black text-red-900 leading-tight">Action Required: Insurance Expired</h3>
-                            <p className="text-red-700/80 font-medium text-sm">
-                                Your insurance policy has expired. Please upload a renewed policy document immediately to remain compliant.
-                            </p>
-                        </div>
-                    </div>
-                    <Link to="/tenant/insurance" className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all shadow-md active:scale-95 whitespace-nowrap">
-                        Upload Insurance
-                    </Link>
-                </section>
 
                 {/* WELCOME BANNER */}
                 <section className="bg-indigo-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-100">
                     <div className="relative z-10 space-y-2">
                         <h2 className="text-3xl font-bold">Good morning, {name}! 👋</h2>
-                        <p className="text-indigo-100 font-medium text-lg">Your next rent payment is due on Feb 1st, 2026.</p>
+                        <p className="text-indigo-100 font-medium text-lg">{nextDue}</p>
                         <div className="pt-4">
                             <Link to="/tenant/payments" className="inline-flex items-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-lg hover:translate-y-[-2px] active:scale-95">
                                 Pay Rent Now
@@ -157,30 +154,33 @@ export const TenantDashboard = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* ANNOUNCEMENTS */}
+                    {/* NOTIFICATIONS */}
                     <section className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden h-fit">
                         <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                            <h3 className="font-black text-slate-800 text-lg">Announcements</h3>
-                            <span className="bg-indigo-50 text-indigo-600 py-1 px-3 rounded-full text-xs font-bold">New</span>
+                            <h3 className="font-black text-slate-800 text-lg">Notifications</h3>
+                            <Link to="/tenant/communication" className="text-xs font-bold text-primary hover:underline">View All</Link>
                         </div>
                         <div className="divide-y divide-slate-50">
-                            {[
-                                { title: 'Elevator Maintenance', date: 'Jan 15', desc: 'Building A elevators will be undergoing maintenance from 10 AM to 2 PM.', type: 'Warning' },
-                                { title: 'New Visitor Parking Rules', date: 'Jan 10', desc: 'Please register all visitor vehicles in the lobby kiosk starting Monday.', type: 'Info' },
-                            ].map((item, idx) => (
-                                <div key={idx} className="p-6 hover:bg-slate-50 transition-colors flex gap-5 items-start">
-                                    <div className={`mt-1 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.type === 'Warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
-                                        <AlertCircle size={20} />
+                            {unreadCount > 0 ? (
+                                <div className="p-8 flex flex-col items-center justify-center text-center space-y-3">
+                                    <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center animate-bounce">
+                                        <AlertCircle size={32} />
                                     </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="font-bold text-slate-800">{item.title}</h4>
-                                            <span className="text-xs font-bold text-slate-400 uppercase">{item.date}</span>
-                                        </div>
-                                        <p className="text-sm text-slate-500 font-medium leading-relaxed">{item.desc}</p>
+                                    <div>
+                                        <h4 className="font-bold text-slate-800 text-lg">You have {unreadCount} new message{unreadCount > 1 ? 's' : ''}!</h4>
+                                        <p className="text-sm text-slate-500 font-medium">Please check your inbox to read messages from the management.</p>
                                     </div>
+                                    <Link to="/tenant/communication" className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100">
+                                        Open Inbox
+                                    </Link>
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="p-12 flex flex-col items-center justify-center text-center space-y-3 opacity-60">
+                                    <ShieldCheck size={48} className="text-slate-300" />
+                                    <p className="text-slate-500 font-bold">You are all caught up!</p>
+                                    <p className="text-xs text-slate-400">No new unread messages from admin.</p>
+                                </div>
+                            )}
                         </div>
                     </section>
 
@@ -191,19 +191,22 @@ export const TenantDashboard = () => {
                             <Link to="/tenant/tickets" className="text-xs font-bold text-primary hover:underline">View All</Link>
                         </div>
                         <div className="p-2 space-y-1">
-                            {[
-                                { id: 'T-1025', title: 'Leaking Sink', status: 'In Progress' },
-                                { id: 'T-1024', title: 'AC Filter', status: 'Resolved' },
-                            ].map((t, idx) => (
-                                <div key={idx} className="p-4 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 cursor-pointer">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.id}</p>
-                                    <h4 className="font-bold text-slate-700">{t.title}</h4>
-                                    <div className="mt-2 flex items-center gap-1.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${t.status === 'Resolved' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                                        <span className={`text-[11px] font-bold uppercase tracking-tight ${t.status === 'Resolved' ? 'text-emerald-600' : 'text-amber-600'}`}>{t.status}</span>
-                                    </div>
+                            {recentTickets.length > 0 ? (
+                                recentTickets.map((t, idx) => (
+                                    <Link key={idx} to="/tenant/tickets" className="block p-4 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 cursor-pointer">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.id}</p>
+                                        <h4 className="font-bold text-slate-700 truncate">{t.title}</h4>
+                                        <div className="mt-2 flex items-center gap-1.5">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${t.status === 'Resolved' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                                            <span className={`text-[11px] font-bold uppercase tracking-tight ${t.status === 'Resolved' ? 'text-emerald-600' : 'text-amber-600'}`}>{t.status}</span>
+                                        </div>
+                                    </Link>
+                                ))
+                            ) : (
+                                <div className="p-8 text-center text-slate-400 italic text-sm">
+                                    No maintenance tickets found.
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </section>
                 </div>

@@ -320,7 +320,7 @@ export const Invoices = () => {
                                     <td className="p-4 text-sm">
                                         <span className={clsx(
                                             "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                                            inv.category === 'SERVICE' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                                            (inv.category === 'SERVICE' || inv.category === 'DEPOSIT') ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
                                         )}>
                                             {inv.category || 'RENT'}
                                         </span>
