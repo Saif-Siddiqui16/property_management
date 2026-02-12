@@ -96,75 +96,77 @@ const RefundsAdjustments = () => {
         </div>
 
         <div className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)] overflow-hidden border border-gray-100">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">ID</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Type</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Reason</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Tenant</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Unit</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Amount</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Date</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Status</th>
-                <th className="p-4 bg-slate-50 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Action</th>
-              </tr>
-            </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">ID</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Type</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Reason</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Tenant</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Unit</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Amount</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Date</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Status</th>
+                  <th className="p-4 bg-slate-50 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="9" className="p-12 text-center text-slate-400">
-                    <Loader2 className="animate-spin mx-auto mb-2" />
-                    Loading records...
-                  </td>
-                </tr>
-              ) : records.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700 font-mono">{r.id}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.type.toLowerCase().includes('refund')
-                      ? 'bg-cyan-50 text-cyan-700 border-cyan-100'
-                      : 'bg-yellow-50 text-yellow-700 border-yellow-100'
-                      }`}>
-                      {r.type}
-                    </span>
-                  </td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{r.reason}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{r.tenant}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{r.unit}</td>
-                  <td className={`p-4 border-b border-gray-100 text-sm font-medium font-mono ${r.amount < 0 ? 'text-amber-700' : 'text-slate-700'}`}>
-                    ${Math.abs(r.amount).toLocaleString('en-CA')}
-                  </td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{r.date}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                      r.status === 'Applied' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                        'bg-orange-50 text-orange-700 border-orange-100' // Pending
-                      }`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-right flex justify-end gap-2 text-nowrap">
-                    <button onClick={() => setSelected(r)} className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-slate-100 rounded-md transition-colors">
-                      <Eye size={16} />
-                    </button>
-                    <button onClick={() => { setEditingRecord(r); setShowModal(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition-colors">
-                      <FileCheck size={16} />
-                    </button>
-                    <button onClick={() => handleDelete(r.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-slate-100 rounded-md transition-colors">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && records.length === 0 && (
-                <tr>
-                  <td colSpan="9" className="p-8 text-center text-slate-400 italic">No refund records found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="9" className="p-12 text-center text-slate-400">
+                      <Loader2 className="animate-spin mx-auto mb-2" />
+                      Loading records...
+                    </td>
+                  </tr>
+                ) : records.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 font-mono whitespace-nowrap">{r.id}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${r.type.toLowerCase().includes('refund')
+                        ? 'bg-cyan-50 text-cyan-700 border-cyan-100'
+                        : 'bg-yellow-50 text-yellow-700 border-yellow-100'
+                        }`}>
+                        {r.type}
+                      </span>
+                    </td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{r.reason}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{r.tenant}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{r.unit}</td>
+                    <td className={`p-4 border-b border-gray-100 text-sm font-medium font-mono whitespace-nowrap ${r.amount < 0 ? 'text-amber-700' : 'text-slate-700'}`}>
+                      ${Math.abs(r.amount).toLocaleString('en-CA')}
+                    </td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{r.date}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                        r.status === 'Applied' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                          'bg-orange-50 text-orange-700 border-orange-100' // Pending
+                        }`}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-right flex justify-end gap-2 text-nowrap whitespace-nowrap">
+                      <button onClick={() => setSelected(r)} className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-slate-100 rounded-md transition-colors">
+                        <Eye size={16} />
+                      </button>
+                      <button onClick={() => { setEditingRecord(r); setShowModal(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-md transition-colors">
+                        <FileCheck size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(r.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-slate-100 rounded-md transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!loading && records.length === 0 && (
+                  <tr>
+                    <td colSpan="9" className="p-8 text-center text-slate-400 italic">No refund records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* CREATE/EDIT MODAL */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 import { Button } from '../components/Button';
-import { Plus, Search, User, Eye, Trash2, FileText, Shield, Download, Upload, ArrowLeft, Calendar, FileCheck, AlertCircle, Pencil, Mail, Smartphone, Send, CheckCircle } from 'lucide-react';
+import { Plus, Search, User, Eye, Trash2, FileText, Shield, Download, Upload, ArrowLeft, Calendar, FileCheck, AlertCircle, Pencil, Mail, Smartphone, Send, CheckCircle, Building2 } from 'lucide-react';
 import clsx from 'clsx';
 import api from '../api/client';
 
@@ -424,9 +424,9 @@ export const Tenants = () => {
 
             {/* TABLE */}
             <section className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] overflow-hidden">
-              <div className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.8fr] bg-slate-50 border-b border-slate-200 px-6 py-4">
+              {/* Desktop Table Header - Hidden on Mobile */}
+              <div className="hidden md:grid grid-cols-[1.5fr_0.6fr_0.9fr_1.2fr_0.8fr_0.8fr] bg-slate-50 border-b border-slate-200 px-6 py-4">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tenant</span>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</span>
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</span>
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Company Name</span>
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Property / Unit</span>
@@ -444,102 +444,187 @@ export const Tenants = () => {
                   });
 
                   return (
-                    <div
-                      key={tenant.id}
-                      className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      <span className="flex items-center gap-3 font-medium text-slate-700 overflow-hidden">
-                        <div className="min-w-[32px] w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-                          <User size={16} />
-                        </div>
-                        <button
-                          onClick={() => handleViewDetails(tenant)}
-                          className="hover:text-indigo-600 hover:underline transition-all text-left truncate flex flex-col"
-                        >
-                          <span className="font-semibold">{tenant.firstName && tenant.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant.name}</span>
-                          {/*
-                          {(tenant.type === 'COMPANY' || tenant.type === 'Company') && (
-                            <span className="text-[10px] text-slate-400 font-medium">Contact Person</span>
-                          )}
-                          */}
-                        </button>
-                        {hasInsuranceIssue && (
-                          <div className="text-amber-500 min-w-[14px]" title="Insurance Expired or Expiring Soon">
-                            <AlertCircle size={14} />
+                    <div key={tenant.id}>
+                      {/* Desktop Table Row - Hidden on Mobile */}
+                      <div
+                        className="hidden md:grid grid-cols-[1.5fr_0.6fr_0.9fr_1.2fr_0.8fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <span className="flex items-center gap-3 font-medium text-slate-700 overflow-hidden">
+                          <div className="min-w-[32px] w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                            <User size={16} />
                           </div>
-                        )}
-                      </span>
-
-                      <span className="text-sm text-slate-600 truncate">{tenant.email}</span>
-
-                      <span className="w-fit">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.type === 'Company' || tenant.type === 'COMPANY'
-                          ? 'bg-purple-50 text-purple-700 border-purple-100'
-                          : tenant.type === 'Resident' || tenant.type === 'RESIDENT'
-                            ? 'bg-amber-50 text-amber-700 border-amber-100'
-                            : 'bg-blue-50 text-blue-700 border-blue-100'
-                          }`}>
-                          {tenant.type === 'COMPANY' || tenant.type === 'Company' ? 'Company' :
-                            tenant.type === 'RESIDENT' || tenant.type === 'Resident' ? 'Resident' :
-                              'Individual'}
+                          <button
+                            onClick={() => handleViewDetails(tenant)}
+                            className="hover:text-indigo-600 hover:underline transition-all text-left truncate flex flex-col"
+                          >
+                            <span className="font-semibold">{tenant.firstName && tenant.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant.name}</span>
+                          </button>
+                          {hasInsuranceIssue && (
+                            <div className="text-amber-500 min-w-[14px]" title="Insurance Expired or Expiring Soon">
+                              <AlertCircle size={14} />
+                            </div>
+                          )}
                         </span>
-                      </span>
 
-                      <span className="text-sm text-slate-600 truncate">
-                        {(tenant.type === 'COMPANY' || tenant.type === 'Company') ? (tenant.companyName || '-') : '-'}
-                      </span>
-
-                      <span className="text-sm text-slate-600">
-                        <div className="font-medium text-slate-800">{tenant.property}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{tenant.unit}</div>
-                      </span>
-
-                      <span className="w-fit">
-                        <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.leaseStatus === 'Active'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          : tenant.leaseStatus === 'DRAFT'
-                            ? 'bg-amber-50 text-amber-700 border-amber-100'
-                            : 'bg-red-50 text-red-700 border-red-100'
-                          }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${tenant.leaseStatus === 'Active' ? 'bg-emerald-500' :
-                            tenant.leaseStatus === 'DRAFT' ? 'bg-amber-500' : 'bg-red-500'
-                            }`}></span>
-                          {tenant.leaseStatus === 'DRAFT' ? 'Draft' : tenant.leaseStatus}
+                        <span className="w-fit">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.type === 'Company' || tenant.type === 'COMPANY'
+                            ? 'bg-purple-50 text-purple-700 border-purple-100'
+                            : tenant.type === 'Resident' || tenant.type === 'RESIDENT'
+                              ? 'bg-amber-50 text-amber-700 border-amber-100'
+                              : 'bg-blue-50 text-blue-700 border-blue-100'
+                            }`}>
+                            {tenant.type === 'COMPANY' || tenant.type === 'Company' ? 'Company' :
+                              tenant.type === 'RESIDENT' || tenant.type === 'Resident' ? 'Resident' :
+                                'Individual'}
+                          </span>
                         </span>
-                      </span>
 
-                      <span className="flex justify-center gap-1">
-                        <button
-                          onClick={() => handleViewDetails(tenant)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200"
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleEditTenant(tenant)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                          title="Edit Tenant"
-                        >
-                          <Pencil size={16} />
-                        </button>
+                        <span className="text-sm text-slate-600 truncate">
+                          {(tenant.type === 'COMPANY' || tenant.type === 'Company') ? (tenant.companyName || '-') : '-'}
+                        </span>
 
-                        <button
-                          onClick={() => handleSendInvite(tenant)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                          title="Send Invite"
-                        >
-                          <Send size={16} />
-                        </button>
-                        <button
-                          onClick={() => deleteTenant(tenant.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-                          title="Delete Tenant"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </span>
+                        <span className="text-sm text-slate-600">
+                          <div className="font-medium text-slate-800">{tenant.property}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{tenant.unit}</div>
+                        </span>
+
+                        <span className="w-fit">
+                          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${tenant.leaseStatus === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : tenant.leaseStatus === 'DRAFT'
+                              ? 'bg-amber-50 text-amber-700 border-amber-100'
+                              : 'bg-red-50 text-red-700 border-red-100'
+                            }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${tenant.leaseStatus === 'Active' ? 'bg-emerald-500' :
+                              tenant.leaseStatus === 'DRAFT' ? 'bg-amber-500' : 'bg-red-500'
+                              }`}></span>
+                            {tenant.leaseStatus === 'DRAFT' ? 'Draft' : tenant.leaseStatus}
+                          </span>
+                        </span>
+
+                        <span className="flex justify-center gap-1">
+                          <button
+                            onClick={() => handleViewDetails(tenant)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200"
+                            title="View Details"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleEditTenant(tenant)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                            title="Edit Tenant"
+                          >
+                            <Pencil size={16} />
+                          </button>
+
+                          <button
+                            onClick={() => handleSendInvite(tenant)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
+                            title="Send Invite"
+                          >
+                            <Send size={16} />
+                          </button>
+                          <button
+                            onClick={() => deleteTenant(tenant.id)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                            title="Delete Tenant"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </span>
+                      </div>
+
+                      {/* Mobile Card View - Hidden on Desktop */}
+                      <div className="md:hidden p-4 hover:bg-slate-50/80 transition-all duration-200">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                              <User size={18} />
+                            </div>
+                            <div>
+                              <button
+                                onClick={() => handleViewDetails(tenant)}
+                                className="font-semibold text-slate-800 hover:text-indigo-600 text-left"
+                              >
+                                {tenant.firstName && tenant.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant.name}
+                              </button>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${tenant.type === 'Company' || tenant.type === 'COMPANY'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-100'
+                                  : tenant.type === 'Resident' || tenant.type === 'RESIDENT'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                    : 'bg-blue-50 text-blue-700 border-blue-100'
+                                  }`}>
+                                  {tenant.type === 'COMPANY' || tenant.type === 'Company' ? 'Company' :
+                                    tenant.type === 'RESIDENT' || tenant.type === 'Resident' ? 'Resident' :
+                                      'Individual'}
+                                </span>
+                                {hasInsuranceIssue && (
+                                  <AlertCircle size={12} className="text-amber-500" title="Insurance Issue" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold border ${tenant.leaseStatus === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : tenant.leaseStatus === 'DRAFT'
+                              ? 'bg-amber-50 text-amber-700 border-amber-100'
+                              : 'bg-red-50 text-red-700 border-red-100'
+                            }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${tenant.leaseStatus === 'Active' ? 'bg-emerald-500' :
+                              tenant.leaseStatus === 'DRAFT' ? 'bg-amber-500' : 'bg-red-500'
+                              }`}></span>
+                            {tenant.leaseStatus === 'DRAFT' ? 'Draft' : tenant.leaseStatus}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 mb-3 text-xs">
+                          {(tenant.type === 'COMPANY' || tenant.type === 'Company') && tenant.companyName && (
+                            <div className="flex items-center gap-2">
+                              <Building2 size={12} className="text-slate-400" />
+                              <span className="text-slate-600 font-medium">{tenant.companyName}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Building2 size={12} className="text-slate-400" />
+                            <span className="text-slate-600">
+                              <span className="font-medium">{tenant.property}</span> • {tenant.unit}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-3 border-t border-slate-100">
+                          <button
+                            onClick={() => handleViewDetails(tenant)}
+                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all text-xs font-semibold"
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleEditTenant(tenant)}
+                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all text-xs font-semibold"
+                          >
+                            <Pencil size={14} />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleSendInvite(tenant)}
+                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-amber-600 bg-amber-50 hover:bg-amber-100 transition-all text-xs font-semibold"
+                          >
+                            <Send size={14} />
+                            Invite
+                          </button>
+                          <button
+                            onClick={() => deleteTenant(tenant.id)}
+                            className="flex items-center justify-center px-3 py-2 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}

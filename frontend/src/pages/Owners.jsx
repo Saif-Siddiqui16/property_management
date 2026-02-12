@@ -207,7 +207,8 @@ export const Owners = () => {
 
                 {/* TABLE */}
                 <section className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] overflow-hidden">
-                    <div className="grid grid-cols-[1.2fr_1.2fr_1.2fr_1.2fr_0.6fr_0.8fr] bg-slate-50 border-b border-slate-200 px-6 py-4">
+                    {/* Desktop Table Header - Hidden on Mobile */}
+                    <div className="hidden md:grid grid-cols-[1.2fr_1.2fr_1.2fr_1.2fr_0.6fr_0.8fr] bg-slate-50 border-b border-slate-200 px-6 py-4">
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact Name</span>
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Company</span>
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email (Login)</span>
@@ -218,56 +219,117 @@ export const Owners = () => {
 
                     <div className="divide-y divide-slate-100">
                         {filteredOwners.map((owner) => (
-                            <div
-                                key={owner.id}
-                                className="grid grid-cols-[1.2fr_1.2fr_1.2fr_1.2fr_0.6fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200"
-                            >
-                                <span className="flex items-center gap-3 font-medium text-slate-700">
-                                    <div className="min-w-[32px] w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-500">
-                                        <User size={16} />
-                                    </div>
-                                    <span className="truncate flex flex-col">
-                                        {owner.name}
+                            <div key={owner.id}>
+                                {/* Desktop Table Row - Hidden on Mobile */}
+                                <div className="hidden md:grid grid-cols-[1.2fr_1.2fr_1.2fr_1.2fr_0.6fr_0.8fr] px-6 py-4 items-center hover:bg-slate-50/80 transition-all duration-200">
+                                    <span className="flex items-center gap-3 font-medium text-slate-700">
+                                        <div className="min-w-[32px] w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-500">
+                                            <User size={16} />
+                                        </div>
+                                        <span className="truncate flex flex-col">
+                                            {owner.name}
+                                        </span>
                                     </span>
-                                </span>
 
-                                <span className="text-sm text-indigo-600 truncate font-bold">{owner.companyName || '-'}</span>
+                                    <span className="text-sm text-indigo-600 truncate font-bold">{owner.companyName || '-'}</span>
 
-                                <span className="text-sm text-slate-600 truncate">{owner.email}</span>
+                                    <span className="text-sm text-slate-600 truncate">{owner.email}</span>
 
-                                <span className="text-sm text-slate-600 truncate italic">
-                                    {owner.properties.length > 0 ? owner.properties.join(', ') : 'No properties assigned'}
-                                </span>
+                                    <span className="text-sm text-slate-600 truncate italic">
+                                        {owner.properties.length > 0 ? owner.properties.join(', ') : 'No properties assigned'}
+                                    </span>
 
-                                <span className="text-sm font-bold text-slate-700">{owner.totalUnits}</span>
+                                    <span className="text-sm font-bold text-slate-700">{owner.totalUnits}</span>
 
-                                <span className="flex justify-center gap-1">
-                                    <button
-                                        onClick={() => setViewingOwner(owner)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                                    >
-                                        <Eye size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleSendInvite(owner)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                                        title="Send Invite"
-                                    >
-                                        <Send size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleEditOwner(owner)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                                    >
-                                        <Pencil size={16} />
-                                    </button>
-                                    <button
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                                        onClick={() => deleteOwner(owner.id)}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </span>
+                                    <span className="flex justify-center gap-1">
+                                        <button
+                                            onClick={() => setViewingOwner(owner)}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                        >
+                                            <Eye size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleSendInvite(owner)}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
+                                            title="Send Invite"
+                                        >
+                                            <Send size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleEditOwner(owner)}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
+                                        <button
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                                            onClick={() => deleteOwner(owner.id)}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </span>
+                                </div>
+
+                                {/* Mobile Card View - Hidden on Desktop */}
+                                <div className="md:hidden p-4 hover:bg-slate-50/80 transition-all duration-200">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-slate-500">
+                                                <User size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-800">{owner.name}</p>
+                                                {owner.companyName && (
+                                                    <p className="text-xs text-indigo-600 font-bold">{owner.companyName}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">{owner.totalUnits} Units</span>
+                                    </div>
+
+                                    <div className="space-y-2 mb-3">
+                                        <div className="flex items-center gap-2 text-xs">
+                                            <Mail size={12} className="text-slate-400" />
+                                            <span className="text-slate-600">{owner.email}</span>
+                                        </div>
+                                        <div className="flex items-start gap-2 text-xs">
+                                            <Building2 size={12} className="text-slate-400 mt-0.5" />
+                                            <span className="text-slate-600 italic">
+                                                {owner.properties.length > 0 ? owner.properties.join(', ') : 'No properties assigned'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-3 border-t border-slate-100">
+                                        <button
+                                            onClick={() => setViewingOwner(owner)}
+                                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all text-xs font-semibold"
+                                        >
+                                            <Eye size={14} />
+                                            View
+                                        </button>
+                                        <button
+                                            onClick={() => handleSendInvite(owner)}
+                                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-amber-600 bg-amber-50 hover:bg-amber-100 transition-all text-xs font-semibold"
+                                        >
+                                            <Send size={14} />
+                                            Invite
+                                        </button>
+                                        <button
+                                            onClick={() => handleEditOwner(owner)}
+                                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all text-xs font-semibold"
+                                        >
+                                            <Pencil size={14} />
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => deleteOwner(owner.id)}
+                                            className="flex items-center justify-center px-3 py-2 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         ))}
                     </div>

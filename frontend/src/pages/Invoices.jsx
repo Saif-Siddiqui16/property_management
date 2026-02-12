@@ -298,72 +298,74 @@ export const Invoices = () => {
                 </div>
 
                 <div className="w-full bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)] overflow-hidden border border-slate-100">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-gray-100">
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Invoice No</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Tenant</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Unit</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Type</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Month</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Amount</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Status</th>
-                                <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {invoices.map(inv => (
-                                <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors border-b border-gray-50 last:border-0">
-                                    <td className="p-4 text-sm text-slate-700 font-medium">{inv.invoiceNo}</td>
-                                    <td className="p-4 text-sm text-slate-600">{inv.tenant}</td>
-                                    <td className="p-4 text-sm text-slate-600">{inv.unit}</td>
-                                    <td className="p-4 text-sm">
-                                        <span className={clsx(
-                                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                                            (inv.category === 'SERVICE' || inv.category === 'DEPOSIT') ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-                                        )}>
-                                            {inv.category || 'RENT'}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-sm text-slate-600">{inv.month}</td>
-                                    <td className="p-4 text-sm text-slate-900 font-bold font-mono">$ {inv.amount.toLocaleString('en-CA')}</td>
-                                    <td className="p-4 text-sm">
-                                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
-                                            inv.status === 'sent' ? 'bg-indigo-100 text-indigo-700' :
-                                                'bg-slate-100 text-slate-700'
-                                            }`}>
-                                            {inv.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex gap-2 text-slate-400">
-                                            <button onClick={() => setViewInvoice(inv)} className="hover:text-indigo-600 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm" title="View">
-                                                <Eye size={16} />
-                                            </button>
-                                            <button onClick={() => openEdit(inv)} className="hover:text-amber-600 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm" title="Edit">
-                                                <Edit2 size={16} />
-                                            </button>
-                                            {inv.status === 'sent' && (
-                                                <button
-                                                    onClick={() => {
-                                                        setIsPaying(inv);
-                                                        setPaymentStatus('idle');
-                                                    }}
-                                                    className="hover:text-emerald-600 transition-colors bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 uppercase"
-                                                >
-                                                    <CreditCard size={14} />
-                                                    Pay
-                                                </button>
-                                            )}
-                                            <button onClick={() => deleteInvoice(inv.id)} className="hover:text-rose-600 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm" title="Delete">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-gray-100">
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Invoice No</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Tenant</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Unit</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Type</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Month</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Amount</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Status</th>
+                                    <th className="p-4 text-xs text-left uppercase text-slate-500 font-bold tracking-wider whitespace-nowrap">Action</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {invoices.map(inv => (
+                                    <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors border-b border-gray-50 last:border-0">
+                                        <td className="p-4 text-sm text-slate-700 font-medium whitespace-nowrap">{inv.invoiceNo}</td>
+                                        <td className="p-4 text-sm text-slate-600 whitespace-nowrap">{inv.tenant}</td>
+                                        <td className="p-4 text-sm text-slate-600 whitespace-nowrap">{inv.unit}</td>
+                                        <td className="p-4 text-sm">
+                                            <span className={clsx(
+                                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap",
+                                                (inv.category === 'SERVICE' || inv.category === 'DEPOSIT') ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                                            )}>
+                                                {inv.category || 'RENT'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-sm text-slate-600 whitespace-nowrap">{inv.month}</td>
+                                        <td className="p-4 text-sm text-slate-900 font-bold font-mono whitespace-nowrap">$ {inv.amount.toLocaleString('en-CA')}</td>
+                                        <td className="p-4 text-sm">
+                                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                                inv.status === 'sent' ? 'bg-indigo-100 text-indigo-700' :
+                                                    'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                {inv.status}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex gap-2 text-slate-400 whitespace-nowrap">
+                                                <button onClick={() => setViewInvoice(inv)} className="hover:text-indigo-600 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm" title="View">
+                                                    <Eye size={16} />
+                                                </button>
+                                                <button onClick={() => openEdit(inv)} className="hover:text-amber-600 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm" title="Edit">
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                {inv.status === 'sent' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsPaying(inv);
+                                                            setPaymentStatus('idle');
+                                                        }}
+                                                        className="hover:text-emerald-600 transition-colors bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 uppercase"
+                                                    >
+                                                        <CreditCard size={14} />
+                                                        Pay
+                                                    </button>
+                                                )}
+                                                <button onClick={() => deleteInvoice(inv.id)} className="hover:text-rose-600 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm" title="Delete">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {/* MODALS REMAIN THE SAME BUT RE-IMPLEMENTED CORRECTLY */}

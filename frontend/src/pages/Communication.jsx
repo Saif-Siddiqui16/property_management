@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MainLayout } from '../layouts/MainLayout';
 import { communicationService } from '../services/communicationService';
-import { Search, Send, User, MoreVertical, RefreshCw, Filter, Clock, MessageCircle } from 'lucide-react';
+import { Search, Send, User, MoreVertical, RefreshCw, Filter, Clock, MessageCircle, ArrowLeft } from 'lucide-react';
 import api from '../api/client';
 
 const Communication = () => {
@@ -24,6 +24,7 @@ const Communication = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedLogs, setSelectedLogs] = useState([]);
   const [totalLogs, setTotalLogs] = useState(0);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   const messagesEndRef = useRef(null);
   const chatIntervalRef = useRef(null);
@@ -67,6 +68,37 @@ const Communication = () => {
     }
   }, [activeTab]);
 
+  // Auto-refresh conversations every 10 seconds
+  useEffect(() => {
+    const conversationInterval = setInterval(() => {
+      fetchConversations();
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(conversationInterval);
+  }, []);
+
+  // Auto-refresh messages when a user is selected (every 5 seconds)
+  useEffect(() => {
+    // Clear any existing interval
+    if (chatIntervalRef.current) {
+      clearInterval(chatIntervalRef.current);
+    }
+
+    // If a user is selected, start polling for new messages
+    if (selectedUser && activeTab !== 'AUDIT') {
+      chatIntervalRef.current = setInterval(() => {
+        fetchHistory(selectedUser.id, true); // Silent refresh (no loading spinner)
+      }, 5000); // 5 seconds
+    }
+
+    // Cleanup on unmount or when selectedUser changes
+    return () => {
+      if (chatIntervalRef.current) {
+        clearInterval(chatIntervalRef.current);
+      }
+    };
+  }, [selectedUser, activeTab]);
+
   const getFilteredConversations = () => {
     if (activeTab === 'AUDIT') return [];
     let filtered = conversations;
@@ -94,7 +126,6 @@ const Communication = () => {
     setSelectedUser(user);
     setNewMessage('');
     setMessages([]);
-    setLoading(true);
     const numericId = typeof user.id === 'string' && user.id.startsWith('resident_') ? parseInt(user.id.replace('resident_', ''), 10) : user.id;
     if (!isNaN(numericId)) {
       try {
@@ -102,16 +133,25 @@ const Communication = () => {
         await fetchConversations();
       } catch (_) { }
     }
-    await fetchHistory(user.id);
-    setLoading(false);
+    await fetchHistory(user.id); // fetchHistory handles loading state internally
   };
 
-  const fetchHistory = async (userId) => {
+  const fetchHistory = async (userId, silent = false) => {
     try {
+      if (!silent) {
+        // Only show loading spinner on manual refresh
+        setLoading(true);
+      }
       const history = await communicationService.getHistory(userId);
       setMessages(history);
       scrollToBottom();
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
   };
 
   const handleSendMessage = async (e) => {
@@ -162,10 +202,10 @@ const Communication = () => {
 
   return (
     <MainLayout title="Communication Hub">
-      <div className="flex h-[calc(100vh-140px)] bg-white rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.06)] overflow-hidden">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-140px)] bg-white rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.06)] overflow-hidden">
 
         {/* LEFT: SIDEBAR */}
-        <div className="w-[340px] border-r border-slate-100 flex flex-col bg-slate-50/50">
+        <div className={`${selectedUser && !showSidebar ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] border-r border-slate-100 flex-col bg-slate-50/50`}>
           <div className="p-4 bg-white border-b border-slate-100 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-slate-800">History</h2>
@@ -229,7 +269,10 @@ const Communication = () => {
               return (
                 <div
                   key={user.id}
-                  onClick={() => handleSelectUser(user)}
+                  onClick={() => {
+                    handleSelectUser(user);
+                    setShowSidebar(false); // Hide sidebar on mobile when user is selected
+                  }}
                   className={`p-4 flex items-center gap-3 cursor-pointer border-b border-slate-50 hover:bg-white group ${selectedUser?.id === user.id ? 'bg-white border-l-4 border-l-indigo-600' : 'border-l-4 border-l-transparent'} ${hasNew ? 'bg-amber-50/70' : ''}`}
                 >
                   <div className="relative flex-shrink-0">
@@ -256,7 +299,7 @@ const Communication = () => {
         </div>
 
         {/* RIGHT: CONTENT */}
-        <div className="flex-1 flex flex-col bg-slate-50 relative overflow-hidden">
+        <div className={`${!selectedUser && !showSidebar ? 'hidden md:flex' : 'flex'} flex-1 flex-col bg-slate-50 relative overflow-hidden`}>
           {activeTab === 'AUDIT' ? (
             <div className="flex-1 overflow-y-auto p-8">
               <div className="max-w-5xl mx-auto space-y-6">
@@ -429,6 +472,17 @@ const Communication = () => {
             <>
               <div className="h-[73px] px-6 bg-white border-b border-slate-100 flex items-center justify-between shadow-sm z-20">
                 <div className="flex items-center gap-4">
+                  {/* Mobile Back Button */}
+                  <button
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setShowSidebar(true);
+                    }}
+                    className="md:hidden p-2 -ml-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <ArrowLeft size={20} className="text-slate-600" />
+                  </button>
+
                   <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
                     {selectedUser.name?.charAt(0) || 'U'}
                   </div>

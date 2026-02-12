@@ -1,0 +1,10 @@
+.env
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+*.zip
+*.mjs
+*.mjs.*
+vite.config.js.timestamp-*

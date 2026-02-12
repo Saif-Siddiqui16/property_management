@@ -54,63 +54,65 @@ const OutstandingDues = () => {
 
         {/* TABLE */}
         <div className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)] overflow-hidden border border-gray-100">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Invoice</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Tenant</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Unit</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Lease Type</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Amount</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Due Date</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Status</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {dues.map((d) => (
-                <tr key={d.invoice} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700 font-mono">{d.invoice}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{d.tenant}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{d.unit}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{d.leaseType}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm font-medium font-mono text-slate-700">${d.amount.toLocaleString('en-CA')}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{d.dueDate}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${d.status === 'Overdue'
-                      ? 'bg-red-50 text-red-700 border-red-100'
-                      : d.status === 'Partial'
-                        ? 'bg-amber-50 text-amber-700 border-amber-100'
-                        : 'bg-orange-50 text-orange-700 border-orange-100'
-                      }`}>
-                      {d.status}
-                      {d.daysOverdue > 0 && d.status !== 'Partial' && ` (${d.daysOverdue} days)`}
-                    </span>
-
-                  </td>
-                  <td className="p-4 border-b border-gray-100 text-sm">
-                    <div className="flex gap-2">
-                      <button onClick={() => setSelectedInvoice(d)} className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-slate-100 rounded-md transition-colors">
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedInvoice(d);
-                          setPaymentForm({ amount: d.amount.toString(), paymentMethod: 'Cash' });
-                          setShowPaymentModal(true);
-                        }}
-                        title="Record Payment"
-                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 rounded-md transition-colors"
-                      >
-                        <CreditCard size={16} />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Invoice</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Tenant</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Unit</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Lease Type</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Amount</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Due Date</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Status</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {dues.map((d) => (
+                  <tr key={d.invoice} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 font-mono whitespace-nowrap">{d.invoice}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{d.tenant}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{d.unit}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{d.leaseType}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm font-medium font-mono text-slate-700 whitespace-nowrap">${d.amount.toLocaleString('en-CA')}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{d.dueDate}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${d.status === 'Overdue'
+                        ? 'bg-red-50 text-red-700 border-red-100'
+                        : d.status === 'Partial'
+                          ? 'bg-amber-50 text-amber-700 border-amber-100'
+                          : 'bg-orange-50 text-orange-700 border-orange-100'
+                        }`}>
+                        {d.status}
+                        {d.daysOverdue > 0 && d.status !== 'Partial' && ` (${d.daysOverdue} days)`}
+                      </span>
+
+                    </td>
+                    <td className="p-4 border-b border-gray-100 text-sm">
+                      <div className="flex gap-2 whitespace-nowrap">
+                        <button onClick={() => setSelectedInvoice(d)} className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-slate-100 rounded-md transition-colors">
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedInvoice(d);
+                            setPaymentForm({ amount: d.amount.toString(), paymentMethod: 'Cash' });
+                            setShowPaymentModal(true);
+                          }}
+                          title="Record Payment"
+                          className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 rounded-md transition-colors"
+                        >
+                          <CreditCard size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* VIEW INVOICE MODAL */}

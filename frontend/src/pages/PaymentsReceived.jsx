@@ -49,50 +49,52 @@ const PaymentsReceived = () => {
 
         {/* TABLE */}
         <div className="bg-white rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.06)] overflow-hidden border border-gray-100">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Invoice</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Tenant</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Unit</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Amount</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Method</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Date</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Status</th>
-                <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100">Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700 font-mono">{p.id}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{p.tenant}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{p.unit}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm font-medium font-mono">${p.amount.toLocaleString('en-CA')}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{p.method}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm text-slate-700">{p.date}</td>
-                  <td className="p-4 border-b border-gray-100 text-sm">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-100">{p.status}</span>
-                  </td>
-                  <td className="p-4 border-b border-gray-100 text-sm">
-                    <div className="flex gap-2">
-                      <button onClick={() => setSelectedPayment(p)} className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-slate-100 rounded-md transition-colors">
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleRefund(p)}
-                        title="Refund"
-                        className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-slate-100 rounded-md transition-colors"
-                      >
-                        <RotateCcw size={16} />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Invoice</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Tenant</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Unit</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Amount</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Method</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Date</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Status</th>
+                  <th className="p-4 bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-gray-100 whitespace-nowrap">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 font-mono whitespace-nowrap">{p.id}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{p.tenant}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{p.unit}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm font-medium font-mono whitespace-nowrap">${p.amount.toLocaleString('en-CA')}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{p.method}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm text-slate-700 whitespace-nowrap">{p.date}</td>
+                    <td className="p-4 border-b border-gray-100 text-sm">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-100 whitespace-nowrap">{p.status}</span>
+                    </td>
+                    <td className="p-4 border-b border-gray-100 text-sm">
+                      <div className="flex gap-2 whitespace-nowrap">
+                        <button onClick={() => setSelectedPayment(p)} className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-slate-100 rounded-md transition-colors">
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleRefund(p)}
+                          title="Refund"
+                          className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-slate-100 rounded-md transition-colors"
+                        >
+                          <RotateCcw size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* VIEW PAYMENT MODAL */}
