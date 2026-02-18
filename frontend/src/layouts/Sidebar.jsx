@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
@@ -17,7 +17,8 @@ import {
   MessageSquare,
   ClipboardList,
   Landmark,
-  Mail
+  Mail,
+  User
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -120,6 +121,11 @@ const NAV_ITEMS = [
     icon: SettingsIcon,
     label: "Settings",
     path: "/settings"
+  },
+  {
+    icon: User,
+    label: "Profile",
+    path: "/profile"
   }
 ];
 
@@ -261,17 +267,23 @@ export const Sidebar = ({ isOpen, onClose }) => {
         </nav>
 
         <div className="p-6 border-t border-slate-50 shrink-0">
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 group cursor-pointer hover:border-primary-100 hover:bg-primary-50/30 transition-all duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm">
-                AD
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-sm font-black text-slate-800 truncate">Admin User</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">Super Admin</p>
+          <Link to="/profile" className="block no-underline">
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 group cursor-pointer hover:border-primary-100 hover:bg-primary-50/30 transition-all duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm">
+                  {JSON.parse(localStorage.getItem('user') || '{}').profilePictureUrl ? (
+                    <img src={JSON.parse(localStorage.getItem('user') || '{}').profilePictureUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    JSON.parse(localStorage.getItem('user') || '{}').firstName?.[0] || 'A'
+                  )}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-sm font-black text-slate-800 truncate">{JSON.parse(localStorage.getItem('user') || '{}').name || 'Admin User'}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">Super Admin</p>
+                </div>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
       </aside>
     </>

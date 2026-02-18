@@ -8,7 +8,7 @@ const Settings = () => {
     notifications: true,
     autoInvoices: true,
     twoFactor: false,
-    companyName: 'My Property Management',
+    companyName: 'Masteko',
     currency: 'CAD ($)',
     paymentCycle: 'Monthly',
     lateFee: 5
@@ -115,6 +115,26 @@ const Settings = () => {
                 onChange={(e) => saveSetting('companyAddress', e.target.value)}
                 placeholder="e.g. 123 Business Avenue, Suite 500&#10;Toronto, ON M5V 2N8"
                 className="px-2.5 py-2 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900 min-h-[60px] resize-none"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-[13px] mb-3.5 text-slate-700">
+              Company Logo URL
+              <input
+                value={settings.companyLogo || ''}
+                onChange={(e) => saveSetting('companyLogo', e.target.value)}
+                placeholder="https://example.com/logo.png"
+                className="h-[38px] px-2.5 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-[13px] mb-3.5 text-slate-700">
+              Company Phone
+              <input
+                value={settings.companyPhone || ''}
+                onChange={(e) => saveSetting('companyPhone', e.target.value)}
+                placeholder="+1 555-000-0000"
+                className="h-[38px] px-2.5 rounded-lg border border-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900"
               />
             </label>
 

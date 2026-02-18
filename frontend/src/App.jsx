@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { VacancyDashboard } from "./pages/VacancyDashboard";
 import { RevenueDashboard } from "./pages/RevenueDashboard";
+import { Profile } from "./pages/Profile";
 
 /* PROPERTIES */
 import { Properties } from "./pages/Properties";
@@ -134,6 +135,7 @@ function App() {
           <Route path="/emails" element={<Emails />} />
           <Route path="/tickets" element={<Tickets />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         {/* 🏢 TENANT PORTAL */}

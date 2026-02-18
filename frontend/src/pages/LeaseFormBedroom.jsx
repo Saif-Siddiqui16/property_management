@@ -21,7 +21,7 @@ export const LeaseFormBedroom = () => {
         endDate: '',
         monthlyRent: '',
         securityDeposit: '',
-        sendCredentials: true
+        sendCredentials: false
     });
 
     useEffect(() => {

@@ -359,6 +359,7 @@ export const Tenants = () => {
       alert(msg);
       setShowInviteModal(false);
       setInvitingTenant(null);
+      await fetchTenants();
     } catch (e) {
       console.error(e);
       alert(e.response?.data?.message || 'Failed to send invite');
@@ -521,10 +522,10 @@ export const Tenants = () => {
 
                           <button
                             onClick={() => handleSendInvite(tenant)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                            title="Send Invite"
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 ${tenant.isInviteSent ? 'text-green-600 hover:bg-green-50' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`}
+                            title={tenant.isInviteSent ? "Resend Invite" : "Send Invite"}
                           >
-                            <Send size={16} />
+                            {tenant.isInviteSent ? <CheckCircle size={16} /> : <Send size={16} />}
                           </button>
                           <button
                             onClick={() => deleteTenant(tenant.id)}
@@ -612,10 +613,19 @@ export const Tenants = () => {
                           </button>
                           <button
                             onClick={() => handleSendInvite(tenant)}
-                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-amber-600 bg-amber-50 hover:bg-amber-100 transition-all text-xs font-semibold"
+                            className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all text-xs font-semibold ${tenant.isInviteSent ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-amber-600 bg-amber-50 hover:bg-amber-100'}`}
                           >
-                            <Send size={14} />
-                            Invite
+                            {tenant.isInviteSent ? (
+                              <>
+                                <CheckCircle size={14} />
+                                Resend
+                              </>
+                            ) : (
+                              <>
+                                <Send size={14} />
+                                Invite
+                              </>
+                            )}
                           </button>
                           <button
                             onClick={() => deleteTenant(tenant.id)}

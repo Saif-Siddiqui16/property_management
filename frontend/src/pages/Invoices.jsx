@@ -210,27 +210,28 @@ export const Invoices = () => {
         } catch (e) { alert('Error deleting invoice'); }
     };
 
-    const handleSave = async (e) => {
-        e.preventDefault();
+    const handleSave = async (e, forcedStatus = null) => {
+        if (e) e.preventDefault();
 
         try {
+            const payload = {
+                month: form.month,
+                rent: form.category === 'RENT' ? form.rent : 0,
+                serviceFees: form.category === 'SERVICE' ? form.serviceFees : 0,
+                category: form.category,
+                description: form.description,
+            };
+
+            if (forcedStatus) payload.status = forcedStatus;
+
             if (editInvoice) {
-                await api.put(`/api/admin/invoices/${editInvoice.id}`, {
-                    month: form.month,
-                    rent: form.category === 'RENT' ? form.rent : 0,
-                    serviceFees: form.category === 'SERVICE' ? form.serviceFees : 0,
-                    category: form.category,
-                    description: form.description,
-                });
+                await api.put(`/api/admin/invoices/${editInvoice.id}`, payload);
             } else {
                 await api.post('/api/admin/invoices', {
+                    ...payload,
                     tenantId: form.tenantId,
                     unitId: form.unitId,
-                    month: form.month,
-                    rent: form.category === 'RENT' ? form.rent : 0,
-                    serviceFees: form.category === 'SERVICE' ? form.serviceFees : 0,
-                    category: form.category,
-                    description: form.description,
+                    status: forcedStatus || 'draft'
                 });
             }
             fetchInvoices();
@@ -415,17 +416,18 @@ export const Invoices = () => {
                                     <div className="flex justify-between items-start">
                                         <div className="space-y-4">
                                             <div className="flex items-center gap-3 text-indigo-600">
-                                                {settings.company_logo ? (
-                                                    <img src={settings.company_logo} alt="Logo" className="w-10 h-10 object-contain" />
+                                                {settings.companyLogo ? (
+                                                    <img src={settings.companyLogo} alt="Logo" className="w-10 h-10 object-contain" />
                                                 ) : (
                                                     <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl italic">P</div>
                                                 )}
                                                 <h2 className="text-xl font-black tracking-tighter text-slate-900 uppercase italic">
-                                                    {settings.company_name || 'PropManage SaaS'}
+                                                    {settings.companyName || 'Masteko'}
                                                 </h2>
                                             </div>
                                             <div className="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed whitespace-pre-line">
-                                                {settings.company_address || '123 Business Avenue, Suite 500\nToronto, ON M5V 2N8\n+1 416-555-0123'}
+                                                {settings.companyAddress || ''}
+                                                {settings.companyPhone && `\nPhone: ${settings.companyPhone}`}
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -765,15 +767,25 @@ export const Invoices = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowForm(false)}
-                                        className="flex-1 py-3.5 rounded-xl border-none cursor-pointer bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold text-sm transition-all"
+                                        className="flex-1 py-3.5 rounded-xl border-none cursor-pointer bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold text-sm transition-all text-center"
                                     >
                                         Cancel
                                     </button>
+                                    {!editInvoice && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleSave(e, 'draft')}
+                                            className="flex-1 py-3.5 rounded-xl border-none cursor-pointer bg-amber-50 text-amber-600 hover:bg-amber-100 font-bold text-sm transition-all"
+                                        >
+                                            Save Draft
+                                        </button>
+                                    )}
                                     <button
-                                        type="submit"
+                                        type="button"
+                                        onClick={(e) => handleSave(e, 'sent')}
                                         className="flex-1 py-3.5 rounded-xl border-none cursor-pointer bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-sm shadow-lg shadow-indigo-100 transition-all active:scale-95"
                                     >
-                                        {editInvoice ? 'Update & Save' : 'Save as Draft'}
+                                        {editInvoice ? 'Update & Save' : 'Finalize & Send'}
                                     </button>
                                 </div>
                             </form>

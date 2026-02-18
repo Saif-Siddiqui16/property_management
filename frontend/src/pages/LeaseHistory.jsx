@@ -151,12 +151,11 @@ export const LeaseHistory = () => {
                                             <div className="flex justify-end gap-2">
                                                 <button
                                                     className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 ${lease.isCredentialsSent
-                                                        ? 'text-emerald-600 bg-emerald-50 cursor-default'
+                                                        ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
                                                         : 'text-amber-600 bg-amber-50 hover:bg-amber-100 hover:scale-105 shadow-sm'
                                                         }`}
-                                                    onClick={() => !lease.isCredentialsSent && handleSendCredentials(lease.id)}
-                                                    title={lease.isCredentialsSent ? "Credentials Sent" : "⚠️ Credentials Not Sent - Click to Send"}
-                                                    disabled={lease.isCredentialsSent}
+                                                    onClick={() => handleSendCredentials(lease.id)}
+                                                    title={lease.isCredentialsSent ? "Credentials already sent - Click to Resend" : "⚠️ Credentials Not Sent - Click to Send"}
                                                 >
                                                     {lease.isCredentialsSent ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
                                                 </button>

@@ -19,7 +19,8 @@ export const LeaseForm = () => {
     startDate: '',
     endDate: '',
     monthlyRent: '',
-    securityDeposit: ''
+    securityDeposit: '',
+    sendCredentials: false
   });
 
   useEffect(() => {
@@ -116,7 +117,8 @@ export const LeaseForm = () => {
         startDate: form.startDate,
         endDate: form.endDate,
         monthlyRent: parseFloat(form.monthlyRent) || 0,
-        securityDeposit: parseFloat(form.securityDeposit) || 0
+        securityDeposit: parseFloat(form.securityDeposit) || 0,
+        sendCredentials: form.sendCredentials === true
       };
 
       const res = await api.post('/api/admin/leases', payload);
@@ -328,6 +330,23 @@ export const LeaseForm = () => {
               />
             </div>
           </div>
+        </div>
+
+        {/* Send Credentials Toggle */}
+        <div className="flex items-center mt-8 mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+          <input
+            type="checkbox"
+            id="sendCredentials"
+            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+            checked={form.sendCredentials}
+            onChange={(e) => setForm({ ...form, sendCredentials: e.target.checked })}
+          />
+          <label htmlFor="sendCredentials" className="ml-3 block text-sm font-medium text-blue-900">
+            Send Welcome Credentials
+            <span className="block text-xs text-blue-600 font-normal mt-0.5">
+              Automatically send login details to the tenant via Email and SMS
+            </span>
+          </label>
         </div>
 
         <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-slate-100">

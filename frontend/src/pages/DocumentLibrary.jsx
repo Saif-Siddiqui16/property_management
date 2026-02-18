@@ -321,20 +321,8 @@ export const DocumentLibrary = () => {
                                                                 try {
                                                                     const fileName = doc.name || 'document';
 
-                                                                    // If Cloudinary URL, download directly
-                                                                    if (doc.fileUrl.startsWith('http')) {
-                                                                        const link = document.createElement('a');
-                                                                        link.href = doc.fileUrl;
-                                                                        link.download = fileName;
-                                                                        link.target = '_blank';
-                                                                        document.body.appendChild(link);
-                                                                        link.click();
-                                                                        document.body.removeChild(link);
-                                                                        return;
-                                                                    }
-
                                                                     const token = localStorage.getItem('accessToken');
-                                                                    const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download`, {
+                                                                    const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download?disposition=attachment`, {
                                                                         headers: {
                                                                             'Authorization': `Bearer ${token}`
                                                                         }
