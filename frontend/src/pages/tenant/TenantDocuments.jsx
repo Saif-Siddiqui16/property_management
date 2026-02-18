@@ -77,29 +77,22 @@ export const TenantDocuments = () => {
     };
 
     const handleView = (url) => {
-        const fileUrl = url.startsWith('http')
-            ? url
-            : `${api.defaults.baseURL.replace('/api', '')}${url}`;
+        let fileUrl = url;
+        if (!fileUrl.startsWith('http')) {
+            const base = api.defaults.baseURL.replace(/\/$/, '');
+            const path = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
+            fileUrl = `${base}${path}`;
+        }
         window.open(fileUrl, '_blank');
     };
 
-    const handleDownload = async (docId, fileName) => {
-        try {
-            const res = await api.get(`/api/tenant/documents/${docId}/download`, {
-                responseType: 'blob'
-            });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error('Download failed', e);
-            alert('Could not download file');
-        }
+    const handleDownload = (docId, url) => {
+        const token = localStorage.getItem('accessToken');
+        const base = api.defaults.baseURL.replace(/\/$/, '');
+        const baseUrl = url.includes('?') ? url.split('?')[0] : url;
+        const cleanPath = baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`;
+        const finalUrl = `${base}${cleanPath}?disposition=attachment&token=${token}`;
+        window.open(finalUrl, '_blank');
     };
 
     return (
@@ -166,7 +159,7 @@ export const TenantDocuments = () => {
                                                             <Eye size={20} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDownload(doc.id, doc.name)}
+                                                            onClick={() => handleDownload(doc.id, doc.fileUrl)}
                                                             className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
                                                             title="Download PDF"
                                                         >

@@ -278,38 +278,15 @@ export const DocumentLibrary = () => {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={async () => {
-                                                                if (doc.fileUrl.startsWith('http')) {
-                                                                    window.open(doc.fileUrl, '_blank');
-                                                                    return;
+                                                            onClick={() => {
+                                                                if (!doc.fileUrl) return alert("File URL missing");
+                                                                let url = doc.fileUrl;
+                                                                if (!url.startsWith('http')) {
+                                                                    const base = api.defaults.baseURL.replace(/\/$/, '');
+                                                                    const path = url.startsWith('/') ? url : `/${url}`;
+                                                                    url = `${base}${path}`;
                                                                 }
-                                                                try {
-                                                                    const token = localStorage.getItem('accessToken');
-                                                                    const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download?disposition=inline`, {
-                                                                        headers: {
-                                                                            'Authorization': `Bearer ${token}`
-                                                                        }
-                                                                    });
-                                                                    if (!response.ok) throw new Error('Failed to open document');
-                                                                    const blob = await response.blob();
-                                                                    const url = window.URL.createObjectURL(blob);
-
-                                                                    // Create a temporary link and click it to open in new tab
-                                                                    const link = document.createElement('a');
-                                                                    link.href = url;
-                                                                    link.target = '_blank';
-                                                                    document.body.appendChild(link);
-                                                                    link.click();
-                                                                    document.body.removeChild(link);
-
-                                                                    // We don't revokeObjectURL immediately as the new tab needs it to load
-                                                                    setTimeout(() => window.URL.revokeObjectURL(url), 100);
-                                                                } catch (err) {
-                                                                    console.error("Failed to open document", err);
-                                                                    const msg = err.response?.data?.message || err.message || "Failed to open document";
-                                                                    alert(msg);
-                                                                }
-
+                                                                window.open(url, '_blank');
                                                             }}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                                                             title="Open"
@@ -318,31 +295,13 @@ export const DocumentLibrary = () => {
                                                         </button>
                                                         <button
                                                             onClick={async () => {
-                                                                try {
-                                                                    const fileName = doc.name || 'document';
-
-                                                                    const token = localStorage.getItem('accessToken');
-                                                                    const response = await fetch(`${api.defaults.baseURL}/api/admin/documents/${doc.id}/download?disposition=attachment`, {
-                                                                        headers: {
-                                                                            'Authorization': `Bearer ${token}`
-                                                                        }
-                                                                    });
-                                                                    if (!response.ok) throw new Error('Download failed');
-                                                                    const blob = await response.blob();
-                                                                    const url = window.URL.createObjectURL(blob);
-                                                                    const link = document.createElement('a');
-                                                                    link.href = url;
-                                                                    link.download = fileName;
-                                                                    document.body.appendChild(link);
-                                                                    link.click();
-                                                                    document.body.removeChild(link);
-                                                                    window.URL.revokeObjectURL(url);
-                                                                } catch (err) {
-                                                                    console.error("Download failed", err);
-                                                                    const msg = err.response?.data?.message || err.message || "Failed to download file";
-                                                                    alert(msg);
-                                                                }
-
+                                                                if (!doc.fileUrl) return alert("File URL missing");
+                                                                const token = localStorage.getItem('accessToken');
+                                                                const base = api.defaults.baseURL.replace(/\/$/, '');
+                                                                const baseUrl = doc.fileUrl.includes('?') ? doc.fileUrl.split('?')[0] : doc.fileUrl;
+                                                                const cleanPath = baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`;
+                                                                const downloadUrl = `${base}${cleanPath}?disposition=attachment&token=${token}`;
+                                                                window.open(downloadUrl, '_blank');
                                                             }}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
                                                             title="Download"
@@ -382,152 +341,154 @@ export const DocumentLibrary = () => {
                 </Card>
 
                 {/* UPLOAD MODAL */}
-                {showUploadModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in">
-                        <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
-                            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">Upload Document</h3>
-                                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Add a new file and link it to entities</p>
+                {
+                    showUploadModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in">
+                            <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+                                <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                                    <div>
+                                        <h3 className="text-2xl font-black text-slate-800 tracking-tight">Upload Document</h3>
+                                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Add a new file and link it to entities</p>
+                                    </div>
+                                    <button onClick={() => { setShowUploadModal(false); resetUploadForm(); }} className="p-2 text-slate-400 hover:text-slate-800 rounded-2xl bg-white shadow-sm border border-slate-100">
+                                        <X size={20} />
+                                    </button>
                                 </div>
-                                <button onClick={() => { setShowUploadModal(false); resetUploadForm(); }} className="p-2 text-slate-400 hover:text-slate-800 rounded-2xl bg-white shadow-sm border border-slate-100">
-                                    <X size={20} />
-                                </button>
-                            </div>
 
-                            <form onSubmit={handleUpload} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Document Type</label>
-                                        <select
-                                            value={uploadType}
-                                            onChange={(e) => setUploadType(e.target.value)}
-                                            className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-slate-700 bg-slate-50"
-                                            required
-                                        >
-                                            <option value="Lease">Lease Agreement</option>
-                                            <option value="Insurance">Insurance Policy</option>
-                                            <option value="Invoice">Invoice</option>
-                                            <option value="ID">Identification</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Display Name (Optional)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Standard naming applied if blank"
-                                            value={uploadName}
-                                            onChange={(e) => setUploadName(e.target.value)}
-                                            className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-slate-700 bg-slate-50"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Expiry Date (Optional)</label>
-                                        <input
-                                            type="date"
-                                            value={expiryDate}
-                                            onChange={(e) => setExpiryDate(e.target.value)}
-                                            className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-slate-700 bg-slate-50"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select File</label>
-                                        <div className="relative">
-                                            <input
-                                                type="file"
-                                                onChange={(e) => setUploadFile(e.target.files[0])}
-                                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                <form onSubmit={handleUpload} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Document Type</label>
+                                            <select
+                                                value={uploadType}
+                                                onChange={(e) => setUploadType(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-slate-700 bg-slate-50"
                                                 required
+                                            >
+                                                <option value="Lease">Lease Agreement</option>
+                                                <option value="Insurance">Insurance Policy</option>
+                                                <option value="Invoice">Invoice</option>
+                                                <option value="ID">Identification</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Display Name (Optional)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Standard naming applied if blank"
+                                                value={uploadName}
+                                                onChange={(e) => setUploadName(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-slate-700 bg-slate-50"
                                             />
-                                            <div className="w-full px-4 py-3 rounded-2xl border border-slate-200 border-dashed bg-slate-50 flex items-center gap-3 text-slate-500 font-bold text-sm">
-                                                <Upload size={18} className="text-indigo-500" />
-                                                {uploadFile ? uploadFile.name : "Choose PDF or Image..."}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Expiry Date (Optional)</label>
+                                            <input
+                                                type="date"
+                                                value={expiryDate}
+                                                onChange={(e) => setExpiryDate(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:border-indigo-500 font-bold text-slate-700 bg-slate-50"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select File</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    onChange={(e) => setUploadFile(e.target.files[0])}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                                    required
+                                                />
+                                                <div className="w-full px-4 py-3 rounded-2xl border border-slate-200 border-dashed bg-slate-50 flex items-center gap-3 text-slate-500 font-bold text-sm">
+                                                    <Upload size={18} className="text-indigo-500" />
+                                                    {uploadFile ? uploadFile.name : "Choose PDF or Image..."}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* MULTI-LINKING SECTION */}
-                                <div className="p-6 bg-indigo-50/50 rounded-[32px] border border-indigo-100/50 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-widest">Multi-Entity Linking</h4>
-                                        <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold">{selectedLinks.length} Linked</span>
-                                    </div>
+                                    {/* MULTI-LINKING SECTION */}
+                                    <div className="p-6 bg-indigo-50/50 rounded-[32px] border border-indigo-100/50 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-widest">Multi-Entity Linking</h4>
+                                            <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold">{selectedLinks.length} Linked</span>
+                                        </div>
 
-                                    <div className="flex gap-2">
-                                        <select
-                                            value={linkType}
-                                            onChange={(e) => setLinkType(e.target.value)}
-                                            className="px-3 py-2 rounded-xl bg-white border border-indigo-100 text-xs font-bold outline-none"
-                                        >
-                                            <option value="USER">Tenant</option>
-                                            <option value="PROPERTY">Property</option>
-                                            <option value="UNIT">Unit</option>
-                                            <option value="LEASE">Lease</option>
-                                        </select>
-                                        <div className="flex-1 relative">
+                                        <div className="flex gap-2">
                                             <select
-                                                onChange={(e) => {
-                                                    const id = e.target.value;
-                                                    if (!id) return;
-                                                    const label = e.target.options[e.target.selectedIndex].text;
-                                                    if (!selectedLinks.find(l => l.entityId === id && l.entityType === linkType)) {
-                                                        setSelectedLinks([...selectedLinks, { entityType: linkType, entityId: id, label }]);
-                                                    }
-                                                }}
-                                                className="w-full px-3 py-2 rounded-xl bg-white border border-indigo-100 text-xs font-bold outline-none"
+                                                value={linkType}
+                                                onChange={(e) => setLinkType(e.target.value)}
+                                                className="px-3 py-2 rounded-xl bg-white border border-indigo-100 text-xs font-bold outline-none"
                                             >
-                                                <option value="">Search & Add...</option>
-                                                {linkType === 'USER' && dropdownData.tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                {linkType === 'PROPERTY' && dropdownData.properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.civicNumber}</option>)}
-                                                {linkType === 'UNIT' && dropdownData.units.map(u => <option key={u.id} value={u.id}>{u.unitNumber}</option>)}
-                                                {linkType === 'LEASE' && dropdownData.leases.map(l => <option key={l.id} value={l.id}>{l.tenant}</option>)}
+                                                <option value="USER">Tenant</option>
+                                                <option value="PROPERTY">Property</option>
+                                                <option value="UNIT">Unit</option>
+                                                <option value="LEASE">Lease</option>
                                             </select>
+                                            <div className="flex-1 relative">
+                                                <select
+                                                    onChange={(e) => {
+                                                        const id = e.target.value;
+                                                        if (!id) return;
+                                                        const label = e.target.options[e.target.selectedIndex].text;
+                                                        if (!selectedLinks.find(l => l.entityId === id && l.entityType === linkType)) {
+                                                            setSelectedLinks([...selectedLinks, { entityType: linkType, entityId: id, label }]);
+                                                        }
+                                                    }}
+                                                    className="w-full px-3 py-2 rounded-xl bg-white border border-indigo-100 text-xs font-bold outline-none"
+                                                >
+                                                    <option value="">Search & Add...</option>
+                                                    {linkType === 'USER' && dropdownData.tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                    {linkType === 'PROPERTY' && dropdownData.properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.civicNumber}</option>)}
+                                                    {linkType === 'UNIT' && dropdownData.units.map(u => <option key={u.id} value={u.id}>{u.unitNumber}</option>)}
+                                                    {linkType === 'LEASE' && dropdownData.leases.map(l => <option key={l.id} value={l.id}>{l.tenant}</option>)}
+                                                </select>
+                                            </div>
                                         </div>
+
+                                        {selectedLinks.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 pt-2">
+                                                {selectedLinks.map((link, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-indigo-100 text-[10px] font-bold text-slate-600 shadow-sm animate-in zoom-in-90">
+                                                        <span className="text-[8px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-md uppercase">{link.entityType}</span>
+                                                        {link.label}
+                                                        <button type="button" onClick={() => setSelectedLinks(selectedLinks.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500">
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {selectedLinks.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 pt-2">
-                                            {selectedLinks.map((link, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-indigo-100 text-[10px] font-bold text-slate-600 shadow-sm animate-in zoom-in-90">
-                                                    <span className="text-[8px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-md uppercase">{link.entityType}</span>
-                                                    {link.label}
-                                                    <button type="button" onClick={() => setSelectedLinks(selectedLinks.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500">
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="pt-4 flex gap-4">
-                                    <Button
-                                        variant="secondary"
-                                        className="flex-1 h-14 rounded-2xl"
-                                        type="button"
-                                        onClick={() => { setShowUploadModal(false); resetUploadForm(); }}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        variant="primary"
-                                        className="flex-1 h-14 rounded-2xl shadow-xl shadow-indigo-100"
-                                        type="submit"
-                                        disabled={uploading}
-                                    >
-                                        {uploading ? "Uploading..." : "Finish Upload"}
-                                    </Button>
-                                </div>
-                            </form>
+                                    <div className="pt-4 flex gap-4">
+                                        <Button
+                                            variant="secondary"
+                                            className="flex-1 h-14 rounded-2xl"
+                                            type="button"
+                                            onClick={() => { setShowUploadModal(false); resetUploadForm(); }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            className="flex-1 h-14 rounded-2xl shadow-xl shadow-indigo-100"
+                                            type="submit"
+                                            disabled={uploading}
+                                        >
+                                            {uploading ? "Uploading..." : "Finish Upload"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </div >
         </MainLayout >
     );
 };
