@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     //baseURL: 'http://localhost:5000',
-    baseURL: 'https://saif-property-news-production.up.railway.app/',
+    baseURL: 'https://property-demo-saif-production.up.railway.app/',
     //baseURL: 'https://api.kiaantechnology.com/',
     headers: {
         'Content-Type': 'application/json',

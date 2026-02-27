@@ -126,7 +126,7 @@ export const Login = () => {
             <button type="button" onClick={() => autofillDemo('owner')} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 text-slate-700">Owner</button>
             <button type="button" onClick={() => autofillDemo('tenant')} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 text-slate-700">Tenant</button>
           </div>
-          <p className="mt-2 text-[11px] text-slate-400">If Tenant login fails, run <code className="bg-slate-200 px-1 rounded">npx prisma db seed</code> in the backend to create demo users.</p>
+
         </div>
       </div>
     </div>

@@ -40,9 +40,8 @@ export const LeaseForm = () => {
   const fetchTenants = async () => {
     try {
       const res = await api.get('/api/admin/tenants');
-      // Filter tenants that don't have active lease
+      // Filter only to remove Residents
       const filtered = res.data.filter(t =>
-        t.leaseStatus !== 'Active' &&
         t.type !== 'RESIDENT' &&
         t.type !== 'Resident'
       );

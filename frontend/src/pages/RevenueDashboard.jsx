@@ -8,6 +8,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Legend
 } from 'recharts';
 
 const monthlyRevenue = [
@@ -29,6 +30,9 @@ export const RevenueDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     actualRevenue: 0,
+    actualRent: 0,
+    actualDeposit: 0,
+    actualServiceFees: 0,
     projectedRevenue: 0,
     totalRevenue: 0,
     monthlyRevenue: [],
@@ -79,7 +83,11 @@ export const RevenueDashboard = () => {
               <Card className="p-6 rounded-[18px] bg-white shadow-[0_20px_45px_rgba(0,0,0,0.08)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_40px_80px_rgba(0,0,0,0.15)] hover:rotate-1 border-l-[6px] border-emerald-500">
                 <span className="text-sm text-gray-500">Actual Revenue (Paid)</span>
                 <h2 className="text-[2.1rem] font-bold mt-2 leading-tight">${(stats.actualRevenue || stats.totalRevenue || 0).toLocaleString('en-CA')}</h2>
-                <p className="mt-2 text-gray-700">YTD Collected</p>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 font-medium">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Rent: ${(stats.actualRent || 0).toLocaleString('en-CA')}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span>Deposit: ${(stats.actualDeposit || 0).toLocaleString('en-CA')}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span>Fees: ${(stats.actualServiceFees || 0).toLocaleString('en-CA')}</span>
+                </div>
               </Card>
 
               <Card className="p-6 rounded-[18px] bg-white shadow-[0_20px_45px_rgba(0,0,0,0.08)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_40px_80px_rgba(0,0,0,0.15)] hover:rotate-1 border-l-[6px] border-indigo-500">
@@ -101,12 +109,10 @@ export const RevenueDashboard = () => {
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       cursor={{ fill: '#f1f5f9' }}
                     />
-                    <Bar
-                      dataKey="amount"
-                      radius={[6, 6, 0, 0]}
-                      fill="#3b82f6"
-                      barSize={32}
-                    />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                    <Bar dataKey="rent" name="Rent" stackId="a" fill="#3b82f6" barSize={32} />
+                    <Bar dataKey="deposit" name="Deposit" stackId="a" fill="#a855f7" />
+                    <Bar dataKey="serviceFees" name="Service Fees" stackId="a" fill="#f97316" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Card>
@@ -115,9 +121,16 @@ export const RevenueDashboard = () => {
               <Card title="Revenue by Property" className="p-6 rounded-[18px] bg-white shadow-[0_20px_45px_rgba(0,0,0,0.08)]">
                 <ul className="p-0 list-none">
                   {stats.revenueByProperty.map((p, index) => (
-                    <li key={index} className="flex justify-between py-2.5 border-b border-dashed border-gray-200 font-medium">
-                      <span>{p.name}</span>
-                      <strong>${p.amount.toLocaleString('en-CA')}</strong>
+                    <li key={index} className="flex flex-col py-3 border-b border-dashed border-gray-200">
+                      <div className="flex justify-between font-bold mb-1">
+                        <span>{p.name}</span>
+                        <span>${p.amount?.toLocaleString('en-CA')}</span>
+                      </div>
+                      <div className="flex gap-4 text-xs text-gray-500">
+                        <span>Rent: ${p.rent?.toLocaleString('en-CA') || 0}</span>
+                        <span>Deposit: ${p.deposit?.toLocaleString('en-CA') || 0}</span>
+                        <span>Fees: ${p.serviceFees?.toLocaleString('en-CA') || 0}</span>
+                      </div>
                     </li>
                   ))}
                   {stats.revenueByProperty.length === 0 && <li className="text-gray-400 italic">No revenue data for this owner</li>}

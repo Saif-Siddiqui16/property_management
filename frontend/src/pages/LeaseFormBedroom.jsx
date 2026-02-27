@@ -17,6 +17,7 @@ export const LeaseFormBedroom = () => {
         unitId: '',
         bedroomId: '',
         tenantId: '',
+        coTenantIds: [],
         startDate: '',
         endDate: '',
         monthlyRent: '',
@@ -41,9 +42,9 @@ export const LeaseFormBedroom = () => {
     const fetchTenants = async () => {
         try {
             const res = await api.get('/api/admin/tenants');
-            // Show tenants who don't have active PERSONAL leases (allow Residents on company leases)
+            // Show all non-resident tenants (multi-unit support)
             const filtered = res.data.filter(t =>
-                t.leaseStatus !== 'Active' || t.activeLeaseRole === 'RESIDENT'
+                t.type !== 'RESIDENT' && t.type !== 'Resident'
             );
             setTenants(filtered);
         } catch (error) {
@@ -143,6 +144,7 @@ export const LeaseFormBedroom = () => {
                 unitId: parseInt(form.unitId),
                 bedroomId: parseInt(form.bedroomId),
                 tenantId: parseInt(form.tenantId),
+                coTenantIds: form.coTenantIds.map(id => parseInt(id)),
                 monthlyRent: parseFloat(form.monthlyRent) || 0,
                 securityDeposit: parseFloat(form.securityDeposit) || 0,
                 isFullUnitLease: false,
@@ -279,12 +281,59 @@ export const LeaseFormBedroom = () => {
                                     <ChevronDown size={18} />
                                 </div>
                             </div>
-                            {form.tenantId && tenants.find(t => t.id.toString() === form.tenantId.toString())?.type === 'RESIDENT' && (
-                                <p className="text-xs font-semibold text-amber-600 mt-2 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 flex items-center gap-2 w-fit">
-                                    <Shield size={14} />
-                                    Resident of: {tenants.find(t => t.id.toString() === form.tenantId.toString())?.parentName || 'Unknown Parent'}
-                                </p>
-                            )}
+                        </div>
+
+                        {/* Co-Tenants Selection (Multi-select) */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">Co-Applicants / Occupants (Optional)</label>
+                            <div className="relative">
+                                <div className="flex flex-wrap gap-2 mb-2 p-1 min-h-[30px]">
+                                    {form.coTenantIds.map(id => {
+                                        const t = tenants.find(tenant => tenant.id.toString() === id.toString());
+                                        return t ? (
+                                            <span key={id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-sm font-medium text-indigo-700">
+                                                {t.name} {t.type === 'RESIDENT' && t.parentName ? `(Res. of ${t.parentName})` : ''}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setForm(prev => ({
+                                                        ...prev,
+                                                        coTenantIds: prev.coTenantIds.filter(cid => cid !== id)
+                                                    }))}
+                                                    className="hover:text-indigo-900"
+                                                >
+                                                    &times;
+                                                </button>
+                                            </span>
+                                        ) : null;
+                                    })}
+                                </div>
+                                <User size={18} className="absolute left-4 top-[50%] -translate-y-1/2 text-slate-400 mt-2" />
+                                <select
+                                    value=""
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val && !form.coTenantIds.includes(val)) {
+                                            setForm(prev => ({
+                                                ...prev,
+                                                coTenantIds: [...prev.coTenantIds, val]
+                                            }));
+                                        }
+                                    }}
+                                    disabled={!form.unitId || !form.tenantId}
+                                    className="w-full pl-12 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-slate-800 appearance-none disabled:opacity-50"
+                                >
+                                    <option value="">Add Co-Tenant...</option>
+                                    {tenants
+                                        .filter(t => t.id.toString() !== form.tenantId && !form.coTenantIds.includes(t.id.toString()))
+                                        .map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                </select>
+                                <div className="absolute right-4 top-[50%] -translate-y-1/2 pointer-events-none text-slate-400 mt-2">
+                                    <ChevronDown size={18} />
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Select additional tenants for this bedroom lease.</p>
                         </div>
 
                         {/* Financials */}
